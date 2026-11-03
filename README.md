@@ -1,6 +1,6 @@
 # SaveWatch
-
-Versioned backup watcher for game save folders. Point it at a game's save directory and a backup folder; every few minutes it re-scans and copies each save that changed into a new timestamped version. Deleted saves are **never** removed from the backup, so an overwritten quick-save or a corrupted slot is always one copy away.
+Watcher for game save folders. Point it at a game's save directory and a backup folder; every few minutes it re-scans and copies each save that changed into a new timestamped version. Deleted saves are **never** removed from the backup, so an overwritten quick-save or a corrupted slot is always one copy away.
+This helps prevent corrupt save games or lost due to power failures or crashes, or if you want to rewind in choice based games.
 
 ![SaveWatch main window](docs/screenshot.png)
 
