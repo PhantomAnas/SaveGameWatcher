@@ -23,8 +23,10 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force src_test\slot | Out-Null
           Set-Content src_test\slot\a.sav "hello"
-          & dist\SaveWatch.exe --cli --source src_test --backup bk_test --once
-          if ($LASTEXITCODE -ne 0) { throw "exe smoke test failed" }
+          # A windowed exe detaches from the console, so wait on the process explicitly.
+          $p = Start-Process -FilePath (Resolve-Path dist\SaveWatch.exe) -ArgumentList "--cli","--source","src_test","--backup","bk_test","--once" -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "exe smoke test failed with exit code $($p.ExitCode)" }
+          if (-not (Test-Path bk_test\slot)) { throw "exe produced no backup" }
           Get-ChildItem bk_test\slot
       - uses: softprops/action-gh-release@v2
         with:
