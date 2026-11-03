@@ -46,6 +46,8 @@ pip install -e .
 savewatch
 ```
 
+Or skip the install and run `python launcher.py` from the checkout (that Python needs `pip install PySide6 platformdirs`).
+
 ## Use
 
 1. **Source folder to watch**: the game's save directory (for example `%USERPROFILE%\Saved Games\<game>` or `%LOCALAPPDATA%\<game>\Saved`).
