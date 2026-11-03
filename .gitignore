@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+my_env/
+
+# Build output (the exe is published as a GitHub Release, never committed)
+build/
+dist/
+*.exe
+*.spec.bak
+
+# Editors / OS
+.vscode/
+.idea/
+.claude/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Media, weights and archives never belong in this repo
+*.mp4
+*.pth
+*.pt
+*.rar
+*.zip
+*.7z
+
+# Local test backups
+_scratch/

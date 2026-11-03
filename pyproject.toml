@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "savewatch"
+version = "0.1.0"
+description = "Versioned backup watcher for game save folders: timestamped copies, hard-link dedup, never mirrors deletions."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Anas (PhantomAnas)" }]
+keywords = ["backup", "game-saves", "versioning", "pyside6", "windows"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Archiving :: Backup",
+]
+dependencies = [
+    "PySide6>=6.6",
+    "platformdirs>=3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pyinstaller>=6"]
+
+[project.urls]
+Homepage = "https://github.com/PhantomAnas/savewatch"
+Issues = "https://github.com/PhantomAnas/savewatch/issues"
+
+[project.scripts]
+savewatch = "savewatch.__main__:main"
+
+[project.gui-scripts]
+savewatch-gui = "savewatch.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+savewatch = ["assets/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

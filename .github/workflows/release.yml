@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -q
+      - run: pyinstaller savewatch.spec
+      - name: Smoke-run the exe (CLI path, no window)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force src_test\slot | Out-Null
+          Set-Content src_test\slot\a.sav "hello"
+          & dist\SaveWatch.exe --cli --source src_test --backup bk_test --once
+          if ($LASTEXITCODE -ne 0) { throw "exe smoke test failed" }
+          Get-ChildItem bk_test\slot
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/SaveWatch.exe
+          generate_release_notes: true
