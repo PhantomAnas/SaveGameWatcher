@@ -1,5 +1,5 @@
-# SaveWatch
-Watcher for game save folders. Point it at a game's save directory and a backup folder; every few minutes it re-scans and copies each save that changed into a new timestamped version. Deleted saves are **never** removed from the backup, so an overwritten quick-save or a corrupted slot is always one copy away.
+# SaveGameWatcher
+SaveWatch: a versioned backup watcher for game save folders. Point it at a game's save directory and a backup folder; every few minutes it re-scans and copies each save that changed into a new timestamped version. Deleted saves are **never** removed from the backup, so an overwritten quick-save or a corrupted slot is always one copy away.
 This helps prevent corrupt save games or lost due to power failures or crashes, or if you want to rewind in choice based games.
 
 ![SaveWatch main window](docs/screenshot.png)
@@ -34,13 +34,13 @@ Restoring is just copying a version folder back over the original.
 
 ## Install
 
-**Windows exe** (no Python needed): download `SaveWatch.exe` from the [latest release](https://github.com/PhantomAnas/savewatch/releases/latest) and run it. It is built by GitHub Actions from the tagged source.
+**Windows exe** (no Python needed): download `SaveWatch.exe` from the [latest release](https://github.com/PhantomAnas/SaveGameWatcher/releases/latest) and run it. It is built by GitHub Actions from the tagged source.
 
 **From source** (Windows, macOS, Linux):
 
 ```
-git clone https://github.com/PhantomAnas/savewatch
-cd savewatch
+git clone https://github.com/PhantomAnas/SaveGameWatcher
+cd SaveGameWatcher
 python -m venv .venv && .venv\Scripts\activate      # or: source .venv/bin/activate
 pip install -e .
 savewatch
