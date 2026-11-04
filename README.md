@@ -1,4 +1,7 @@
 # SaveGameWatcher
+
+**Free, open-source game save backup tool for Windows (Python, PySide6): automatically keeps timestamped versions of your save files so a corrupted, overwritten or deleted save is always one click away. Works with any game that saves to a folder.**
+
 SaveWatch: a versioned backup watcher for game save folders. Point it at a game's save directory and a backup folder; every few minutes it re-scans and copies each save that changed into a new timestamped version. Deleted saves are **never** removed from the backup, so an overwritten quick-save or a corrupted slot is always one copy away.
 This helps prevent corrupt save games or lost due to power failures or crashes, or if you want to rewind in choice based games.
 
