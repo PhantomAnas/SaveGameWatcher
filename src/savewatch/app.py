@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import ctypes
 import os
+import queue
 import sys
 import threading
 import traceback
 from datetime import datetime
 
 from . import __version__, autostart
+from .catalog import cached_cover, fetch_cover, find_game
 from .config import (
     APP_NAME,
     DEFAULT_PROFILE_NAME,
@@ -96,7 +98,9 @@ from PySide6.QtGui import (  # noqa: E402
     QIcon,
     QLinearGradient,
     QPainter,
+    QPainterPath,
     QPalette,
+    QPixmap,
     QPen,
     QRadialGradient,
     QTextCursor,
@@ -336,11 +340,80 @@ class Avatar(QLabel):
     def set_name(self, name: str) -> None:
         words = [w for w in name.replace("-", " ").split() if w[:1].isalnum()]
         initials = "".join(w[0] for w in words[:2]).upper() or "?"
+        self.setPixmap(QPixmap())
         self.setText(initials)
         a, b = AVATAR_GRADIENTS[sum(map(ord, name)) % len(AVATAR_GRADIENTS)]
         self.setStyleSheet(
             "QLabel { color: #05060c; border-radius: 11px; "
             f"background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {a}, stop:1 {b}); }}")
+
+    def set_cover(self, path: str | None) -> bool:
+        """Show the game's cover art instead of initials (rounded, cropped to a
+        square from the upper part of the cover, where the title art sits)."""
+        if not path:
+            return False
+        source = QPixmap(path)
+        if source.isNull():
+            return False
+        self.setPixmap(rounded_cover(source, self.width(), self.height(), self.devicePixelRatioF()))
+        self.setText("")
+        self.setStyleSheet("QLabel { background: transparent; border-radius: 11px; }")
+        return True
+
+
+def rounded_cover(source: QPixmap, w: int, h: int, dpr: float, radius: float = 11) -> QPixmap:
+    pw, ph = max(1, int(w * dpr)), max(1, int(h * dpr))
+    scaled = source.scaled(pw, ph, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                           Qt.TransformationMode.SmoothTransformation)
+    x = (scaled.width() - pw) // 2
+    y = int((scaled.height() - ph) * 0.2)
+    out = QPixmap(pw, ph)
+    out.fill(Qt.GlobalColor.transparent)
+    p = QPainter(out)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    clip = QPainterPath()
+    clip.addRoundedRect(0, 0, pw, ph, radius * dpr, radius * dpr)
+    p.setClipPath(clip)
+    p.drawPixmap(0, 0, scaled, x, y, pw, ph)
+    p.end()
+    out.setDevicePixelRatio(dpr)
+    return out
+
+
+class CoverLoader(QObject):
+    """Fetches game covers from Steam's image server on a background thread,
+    one at a time, and caches them on disk.  `ready` fires on the GUI thread."""
+
+    ready = Signal(int, str)
+
+    def __init__(self, enabled: bool) -> None:
+        super().__init__()
+        self.enabled = enabled
+        self._queue: "queue.Queue[int]" = queue.Queue()
+        self._pending: set[int] = set()
+        self._thread: threading.Thread | None = None
+
+    def get(self, steam_id: int | None) -> str | None:
+        """Cached cover now, or None (and a download is queued when allowed)."""
+        if not steam_id:
+            return None
+        path = cached_cover(steam_id)
+        if path or not self.enabled or steam_id in self._pending:
+            return path
+        self._pending.add(steam_id)
+        self._queue.put(steam_id)
+        if self._thread is None:
+            self._thread = threading.Thread(target=self._run, name="covers", daemon=True)
+            self._thread.start()
+        return None
+
+    def _run(self) -> None:
+        while True:
+            steam_id = self._queue.get()
+            path = fetch_cover(steam_id) if self.enabled else None
+            self._pending.discard(steam_id)
+            if path:
+                self.ready.emit(steam_id, path)
 
 
 class RowWidget(QWidget):
@@ -468,6 +541,8 @@ class SaveWatchWindow(Backdrop):
         self.watched_id = ""
         self._loading = False
         self._stats_cache: dict[str, tuple[int, int]] = {}
+        self.covers = CoverLoader(settings.download_covers)
+        self.covers.ready.connect(lambda *_: (self._update_profile_rows(), self._refresh_header()))
 
         self._build_ui()
         self._build_tray()
@@ -595,6 +670,8 @@ class SaveWatchWindow(Backdrop):
     def _build_header(self) -> QHBoxLayout:
         row = QHBoxLayout()
         row.setSpacing(16)
+        self.header_avatar = Avatar(58)
+        row.addWidget(self.header_avatar, 0, Qt.AlignmentFlag.AlignTop)
         titles = QVBoxLayout()
         titles.setSpacing(2)
         self.game_title = ElidedLabel("", mode=Qt.TextElideMode.ElideRight)
@@ -713,7 +790,12 @@ class SaveWatchWindow(Backdrop):
         self.src_edit.textEdited.connect(self._on_profile_field)
         self.src_btn = QPushButton("Browse...")
         self.src_btn.clicked.connect(self._browse_source)
+        self.find_btn = QPushButton("Find saves...")
+        self.find_btn.setToolTip("Check the known save locations of this game, or search the PC "
+                                 "for folders named after it.")
+        self.find_btn.clicked.connect(self.find_save_folder)
         src_row.addWidget(self.src_edit, 1)
+        src_row.addWidget(self.find_btn)
         src_row.addWidget(self.src_btn)
         grid.addLayout(src_row, 3, 0, 1, 3)
 
@@ -1002,10 +1084,14 @@ class SaveWatchWindow(Backdrop):
         if not autostart.supported():
             self.autostart_chk.setToolTip("Only available on Windows")
         self.autostart_chk.toggled.connect(self._on_autostart_toggled)
+        self.covers_chk = QCheckBox("Show game covers (downloaded once from Steam's public "
+                                    "image server, then kept on this PC)")
+        self.covers_chk.toggled.connect(self._on_covers_toggled)
         for chk in (self.startup_chk, self.tray_chk, self.autowatch_chk):
             chk.toggled.connect(self._schedule_save)
             b.addWidget(chk)
         b.addWidget(self.autostart_chk)
+        b.addWidget(self.covers_chk)
 
         b.addSpacing(8)
         b.addWidget(section("Restore safety"))
@@ -1102,6 +1188,10 @@ class SaveWatchWindow(Backdrop):
             self._refresh_checkpoints()
 
     # ----------------------------------------------------------- profiles
+    def _cover_for(self, p: GameProfile) -> str | None:
+        game = find_game(p.game_id) if p.game_id else None
+        return self.covers.get(game.steam) if game else None
+
     def _profile_subtitle(self, p: GameProfile) -> str:
         return p.source or "no save folder yet"
 
@@ -1140,6 +1230,7 @@ class SaveWatchWindow(Backdrop):
             row.sub.set_full_text(self._profile_subtitle(p))
             if isinstance(row.lead, Avatar):
                 row.lead.set_name(p.name)
+                row.lead.set_cover(self._cover_for(p))
             row.set_badge("LIVE" if self.running and p.id == self.watched_id else "")
         n = len(self.settings.profiles)
         self.profile_count.setText(f"{n} game{'s' if n != 1 else ''}")
@@ -1184,18 +1275,62 @@ class SaveWatchWindow(Backdrop):
         self._refresh_header()
         self._schedule_save()
 
+    def _pick_game(self, query: str = "", game_id: str = "", title: str = "Add a game") -> dict | None:
+        from .picker import GamePicker  # imported late: it builds on this module
+
+        picker = GamePicker(self, self.covers, query=query, game_id=game_id, title=title)
+        picker.exec()
+        return picker.chosen
+
     def add_profile(self) -> None:
         if self.running:
             return
-        p = self.settings.add_profile()
+        chosen = self._pick_game()
+        if chosen is None:
+            return
+        game = chosen["game"]
+        name = chosen["name"] or DEFAULT_PROFILE_NAME
+        # The empty placeholder a fresh install starts with is replaced, not kept.
+        for blank in [x for x in self.settings.profiles
+                      if x.name == DEFAULT_PROFILE_NAME and not x.source and not x.backup]:
+            self.settings.remove_profile(blank.id)
+        p = self.settings.add_profile(name, source=chosen["path"],
+                                      game_id=game.id if game else "")
+        p.backup = self.settings.suggest_backup(name)
         self.settings.active_profile = p.id
         self._fill_profile_list()
         self._load_profile_fields()
         self.tabs[0].click()
-        self.name_edit.setFocus()
-        self.name_edit.selectAll()
+        if not p.backup:
+            self.dst_edit.setFocus()
         self._schedule_save()
-        self.log("info", "New game profile added - name it and pick its save folder.")
+        where = f"saves in {p.source}" if p.source else "no save folder yet - use Find to look for it"
+        self.log("info", f"Added '{name}' ({where}). "
+                         + ("Pick a backup folder, then press Start watching." if not p.backup
+                            else "Press Start watching when ready."))
+
+    def find_save_folder(self) -> None:
+        """Find the save folder of the selected profile: known locations for a
+        listed game, or a search of the PC by the game's name."""
+        if self.running:
+            return
+        p = self.profile
+        query = "" if p.name == DEFAULT_PROFILE_NAME else p.name
+        chosen = self._pick_game(query=query, game_id=p.game_id, title=f"Find saves - {p.name}")
+        if chosen is None or not chosen["path"]:
+            return
+        game = chosen["game"]
+        if game is not None:
+            p.game_id = game.id
+        if p.name in (DEFAULT_PROFILE_NAME, "My game", "") and chosen["name"]:
+            p.name = chosen["name"]
+        p.source = chosen["path"]
+        if not p.backup:
+            p.backup = self.settings.suggest_backup(p.name)
+        self._load_profile_fields()
+        self._update_profile_rows()
+        self._schedule_save()
+        self.log("info", f"Save folder for '{p.name}' set to {p.source}")
 
     def delete_profile(self) -> None:
         if self.running or len(self.settings.profiles) < 2:
@@ -1240,6 +1375,8 @@ class SaveWatchWindow(Backdrop):
 
     def _refresh_header(self) -> None:
         p = self.profile
+        self.header_avatar.set_name(p.name)
+        self.header_avatar.set_cover(self._cover_for(p))
         self.game_title.set_full_text(p.name)
         self.game_path.set_full_text(p.source or "Set the save folder below to start backing up "
                                                  "this game.")
@@ -1743,6 +1880,7 @@ class SaveWatchWindow(Backdrop):
         self.tray_chk.setChecked(s.minimize_to_tray and self.tray is not None)
         self.autowatch_chk.setChecked(s.auto_start_watching)
         self.undo_days_spin.setValue(s.undo_days)
+        self.covers_chk.setChecked(s.download_covers)
         self.autostart_chk.blockSignals(True)
         self.autostart_chk.setChecked(autostart.is_enabled())
         self.autostart_chk.blockSignals(False)
@@ -1756,6 +1894,14 @@ class SaveWatchWindow(Backdrop):
         s.minimize_to_tray = self.tray_chk.isChecked()
         s.auto_start_watching = self.autowatch_chk.isChecked()
         s.undo_days = self.undo_days_spin.value()
+        s.download_covers = self.covers_chk.isChecked()
+
+    def _on_covers_toggled(self, checked: bool) -> None:
+        self.covers.enabled = checked
+        if not self._loading:
+            self._update_profile_rows()
+            self._refresh_header()
+            self._schedule_save()
 
     def _schedule_save(self, *_args) -> None:
         if not self._loading:
@@ -1815,6 +1961,7 @@ class SaveWatchWindow(Backdrop):
 
     def _set_inputs_enabled(self, enabled: bool) -> None:
         for w in (self.src_edit, self.dst_edit, self.src_btn, self.dst_btn, self.name_edit,
+                  self.find_btn,
                   self.interval_spin.parentWidget(), self.keep_spin.parentWidget(),
                   self.startup_chk, self.profile_list, self.add_btn):
             w.setEnabled(enabled)

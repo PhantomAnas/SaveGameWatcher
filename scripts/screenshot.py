@@ -95,6 +95,7 @@ app = setup_app(sys.argv[0])
 backup = build_demo_backup()
 
 s = config.Settings()
+s.download_covers = False  # screenshots use the initials tiles, no downloaded art
 witcher = s.add_profile("The Witcher 3", source=FAKE_SRC, backup=backup, interval_minutes=5, keep=10)
 s.add_profile("Elden Ring", source=r"C:\Users\you\AppData\Roaming\EldenRing\76561198000000000",
               backup=r"D:\SaveBackups\Elden Ring")
@@ -158,6 +159,42 @@ win.cp_list.setCurrentRow(1)
 for _ in range(5):
     app.processEvents()
 win.grab().save(os.path.join(docs, "checkpoints.png"))
+
+# The game picker, with made-up detection results (real ones would show this
+# PC's own paths).
+import savewatch.picker as picker_mod  # noqa: E402
+from savewatch.catalog import Candidate  # noqa: E402
+
+
+def fake_detect(game, folders=None):
+    if "Witcher" not in game.name:
+        return []
+    return [Candidate("All versions", "", FAKE_SRC, True, 2757, NOW - timedelta(minutes=12))]
+
+
+def fake_name_search(name, folders=None):
+    return [Candidate("Found by name", "", r"C:\Users\you\AppData\Roaming\The Witcher 3", True, 1,
+                      NOW - timedelta(days=330))]
+
+
+picker_mod.detect = fake_detect
+picker_mod.search_by_name = fake_name_search
+_real_isdir = os.path.isdir
+os.path.isdir = lambda p: str(p).startswith(r"C:\Users\you") or _real_isdir(p)  # demo paths
+win.covers.enabled = False
+picker = picker_mod.GamePicker(win, win.covers, game_id="the-witcher-3-wild-hunt")
+picker._search_by_name()
+picker.show()
+for _ in range(5):
+    app.processEvents()
+for i in range(picker.cand_list.count()):
+    if "gamesaves" in picker.candidates[picker.cand_list.item(i).data(0x0100)].path:
+        picker.cand_list.setCurrentRow(i)
+picker.game_list.scrollToItem(picker.game_list.currentItem())
+for _ in range(5):
+    app.processEvents()
+picker.grab().save(os.path.join(docs, "picker.png"))
+picker.close()
 
 win.running = False
 win.quit_app()

@@ -1,0 +1,1327 @@
+{
+ "version": 1,
+ "source": "Save locations: PCGamingWiki via the Ludusavi manifest; Steam emulator layouts: emulator docs and community reports.",
+ "games": [
+  {
+   "id": "007-first-light",
+   "name": "007 First Light",
+   "steam": 3768760,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/3768760"
+    },
+    {
+     "label": "Epic Games",
+     "path": "{APPDATA}/IO Interactive/Epic/*/007 First Light/KntSlotSaveFile-0"
+    }
+   ]
+  },
+  {
+   "id": "assassins-creed-iv-black-flag",
+   "name": "Assassin's Creed IV: Black Flag",
+   "steam": 242050,
+   "locations": [
+    {
+     "label": "Ubisoft Connect",
+     "path": "{UBISOFT}/savegames/*/273"
+    },
+    {
+     "label": "Steam / Ubisoft Connect",
+     "path": "{UBISOFT}/savegames/*/437"
+    }
+   ]
+  },
+  {
+   "id": "assassins-creed-odyssey",
+   "name": "Assassin's Creed Odyssey",
+   "steam": 812140,
+   "locations": [
+    {
+     "label": "Ubisoft Connect",
+     "path": "{UBISOFT}/savegames/*/5059"
+    },
+    {
+     "label": "Steam / Ubisoft Connect",
+     "path": "{UBISOFT}/savegames/*/5092"
+    }
+   ]
+  },
+  {
+   "id": "assassins-creed-unity",
+   "name": "Assassin's Creed Unity",
+   "steam": 289650,
+   "locations": [
+    {
+     "label": "Ubisoft Connect",
+     "path": "{UBISOFT}/savegames/*/720"
+    },
+    {
+     "label": "Steam / Ubisoft Connect",
+     "path": "{UBISOFT}/savegames/*/857"
+    }
+   ]
+  },
+  {
+   "id": "assassins-creed-black-flag-resynced",
+   "name": "Assassin's Creed: Black Flag Resynced",
+   "steam": 3751950,
+   "locations": [
+    {
+     "label": "Steam / Ubisoft Connect",
+     "path": "{UBISOFT}/savegames/*/66088"
+    },
+    {
+     "label": "All versions",
+     "path": "{LOCALAPPDATA}/Ubisoft/Assassin's Creed Black Flag Resynced/save"
+    }
+   ]
+  },
+  {
+   "id": "beyond-two-souls",
+   "name": "Beyond: Two Souls",
+   "steam": 960990,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{SAVEDGAMES}/Beyond Two Souls Steam/Save"
+    },
+    {
+     "label": "Epic Games / GOG",
+     "path": "{DOCUMENTS}/Quantic Dream/Beyond Two Souls/Save"
+    }
+   ]
+  },
+  {
+   "id": "bioshock-infinite",
+   "name": "BioShock Infinite",
+   "steam": 8870,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/8870"
+    },
+    {
+     "label": "Epic Games",
+     "path": "{DOCUMENTS}/My Games/BioShock Infinite Epic/XGame/SaveData"
+    },
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/My Games/BioShock Infinite/XGame/SaveData"
+    }
+   ]
+  },
+  {
+   "id": "the-blood-of-dawnwalker",
+   "name": "The Blood of Dawnwalker",
+   "steam": 3751260,
+   "locations": [
+    {
+     "label": "GOG",
+     "path": "{LOCALAPPDATA}/Dawnwalker/Saved/GOGSaveGames"
+    },
+    {
+     "label": "All versions",
+     "path": "{LOCALAPPDATA}/Dawnwalker/Saved/SaveGames"
+    }
+   ]
+  },
+  {
+   "id": "call-of-duty-advanced-warfare",
+   "name": "Call of Duty: Advanced Warfare",
+   "steam": 209650,
+   "locations": [
+    {
+     "label": "Game folder (Steam install)",
+     "path": "{GAMEDIR}/players2"
+    }
+   ],
+   "install_dirs": [
+    "Call of Duty Advanced Warfare"
+   ]
+  },
+  {
+   "id": "call-of-duty-ghosts",
+   "name": "Call of Duty: Ghosts",
+   "steam": 209160,
+   "locations": [
+    {
+     "label": "Game folder (Steam install)",
+     "path": "{GAMEDIR}/players2"
+    }
+   ],
+   "install_dirs": [
+    "Call of Duty Ghosts"
+   ]
+  },
+  {
+   "id": "call-of-duty-infinite-warfare",
+   "name": "Call of Duty: Infinite Warfare",
+   "steam": 292730,
+   "locations": [
+    {
+     "label": "Game folder (Steam install)",
+     "path": "{GAMEDIR}/players2"
+    }
+   ],
+   "install_dirs": [
+    "Call of Duty - Infinite Warfare"
+   ]
+  },
+  {
+   "id": "call-of-duty-modern-warfare-2-2009",
+   "name": "Call of Duty: Modern Warfare 2 (2009)",
+   "steam": 10180,
+   "locations": [
+    {
+     "label": "Game folder (Steam install)",
+     "path": "{GAMEDIR}/players/save"
+    },
+    {
+     "label": "Game folder (Steam install)",
+     "path": "{GAMEDIR}/players"
+    }
+   ],
+   "install_dirs": [
+    "Call of Duty Modern Warfare 2"
+   ]
+  },
+  {
+   "id": "the-callisto-protocol",
+   "name": "The Callisto Protocol",
+   "steam": 1544020,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{LOCALAPPDATA}/CallistoProtocol/Saved/SaveGames"
+    }
+   ]
+  },
+  {
+   "id": "clair-obscur-expedition-33",
+   "name": "Clair Obscur: Expedition 33",
+   "steam": 1903340,
+   "locations": [
+    {
+     "label": "Epic Games / Steam",
+     "path": "{LOCALAPPDATA}/Sandfall/Saved/SaveGames/*"
+    }
+   ]
+  },
+  {
+   "id": "crisis-core-final-fantasy-vii-reunion",
+   "name": "Crisis Core: Final Fantasy VII Reunion",
+   "steam": 1608070,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/My Games/CRISIS CORE FINAL FANTASY VII REUNION/Steam/*"
+    }
+   ]
+  },
+  {
+   "id": "cyberpunk-2077",
+   "name": "Cyberpunk 2077",
+   "steam": 1091500,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{SAVEDGAMES}/CD Projekt Red/Cyberpunk 2077"
+    }
+   ]
+  },
+  {
+   "id": "the-dark-pictures-house-of-ashes",
+   "name": "The Dark Pictures: House of Ashes",
+   "steam": 1281590,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{LOCALAPPDATA}/HouseOfAshes/Saved/SaveGames"
+    }
+   ]
+  },
+  {
+   "id": "the-dark-pictures-man-of-medan",
+   "name": "The Dark Pictures: Man of Medan",
+   "steam": 939850,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{LOCALAPPDATA}/ManOfMedan/Saved/SaveGames"
+    }
+   ]
+  },
+  {
+   "id": "days-gone",
+   "name": "Days Gone",
+   "steam": 1259420,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{LOCALAPPDATA}/BendGame/Saved/*"
+    }
+   ]
+  },
+  {
+   "id": "deathloop",
+   "name": "Deathloop",
+   "steam": 1252330,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{SAVEDGAMES}/Arkane Studios/Deathloop/base/savegame/*"
+    }
+   ]
+  },
+  {
+   "id": "detroit-become-human",
+   "name": "Detroit: Become Human",
+   "steam": 1222140,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{SAVEDGAMES}/Quantic Dream/Detroit Become Human"
+    }
+   ]
+  },
+  {
+   "id": "dying-light",
+   "name": "Dying Light",
+   "steam": 239140,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/239140/remote/out"
+    },
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/Dying Light/out/save"
+    },
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/DyingLight/out/save"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/239140/remote/out"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/239140/remote/out"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/239140/remote/out"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/239140"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/239140/remote/out"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/239140/remote/out"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/239140/Saves/out"
+    }
+   ]
+  },
+  {
+   "id": "final-fantasy-vii-rebirth",
+   "name": "Final Fantasy VII Rebirth",
+   "steam": 2909400,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{DOCUMENTS}/My Games/FINAL FANTASY VII REBIRTH/Steam/*"
+    }
+   ]
+  },
+  {
+   "id": "final-fantasy-vii-remake",
+   "name": "Final Fantasy VII Remake",
+   "steam": 1462040,
+   "locations": [
+    {
+     "label": "Epic Games",
+     "path": "{DOCUMENTS}/My Games/FINAL FANTASY VII REMAKE/EOS"
+    },
+    {
+     "label": "Steam",
+     "path": "{DOCUMENTS}/My Games/FINAL FANTASY VII REMAKE/Steam"
+    }
+   ]
+  },
+  {
+   "id": "final-fantasy-xv",
+   "name": "Final Fantasy XV",
+   "steam": 637650,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/637650/remote"
+    },
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/My Games/FINAL FANTASY XV/Origin/savestorage"
+    },
+    {
+     "label": "Steam",
+     "path": "{DOCUMENTS}/My Games/FINAL FANTASY XV/Steam/*/savestorage"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/637650/remote"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/637650/remote"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/637650/remote"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/637650"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/637650/remote"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/637650/remote"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/637650/Saves"
+    }
+   ]
+  },
+  {
+   "id": "final-fantasy-xvi",
+   "name": "Final Fantasy XVI",
+   "steam": 2515020,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/My Games/FINAL FANTASY XVI"
+    }
+   ]
+  },
+  {
+   "id": "ghost-of-tsushima",
+   "name": "Ghost of Tsushima",
+   "steam": 2215430,
+   "locations": [
+    {
+     "label": "All versions - Director's Cut",
+     "path": "{DOCUMENTS}/Ghost of Tsushima DIRECTOR'S CUT/*"
+    }
+   ]
+  },
+  {
+   "id": "grand-theft-auto-v",
+   "name": "Grand Theft Auto V",
+   "steam": 271590,
+   "locations": [
+    {
+     "label": "All versions - Legacy",
+     "path": "{DOCUMENTS}/Rockstar Games/GTA V/Profiles/*"
+    },
+    {
+     "label": "All versions - Enhanced",
+     "path": "{DOCUMENTS}/Rockstar Games/GTAV Enhanced/Profiles/*"
+    },
+    {
+     "label": "Repack: Goldberg SocialClub emulator",
+     "path": "{APPDATA}/Goldberg SocialClub Emu Saves/GTA V"
+    }
+   ]
+  },
+  {
+   "id": "grand-theft-auto-san-andreas",
+   "name": "Grand Theft Auto: San Andreas",
+   "steam": 12120,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/GTA San Andreas User Files"
+    }
+   ]
+  },
+  {
+   "id": "heavy-rain",
+   "name": "Heavy Rain",
+   "steam": 960910,
+   "locations": [
+    {
+     "label": "GOG / Steam",
+     "path": "{SAVEDGAMES}/HeavyRain"
+    },
+    {
+     "label": "Steam",
+     "path": "{SAVEDGAMES}/HeavyRainJP"
+    },
+    {
+     "label": "Epic Games",
+     "path": "{SAVEDGAMES}/HeavyRainNS"
+    }
+   ]
+  },
+  {
+   "id": "hitman-absolution",
+   "name": "Hitman: Absolution",
+   "steam": 203140,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/205930/remote"
+    },
+    {
+     "label": "GOG",
+     "path": "{APPDATA}/IO Interactive/HM5"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/205930/remote"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/205930/remote"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/205930/remote"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/205930"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/205930/remote"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/205930/remote"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/205930/Saves"
+    }
+   ]
+  },
+  {
+   "id": "horizon-zero-dawn",
+   "name": "Horizon Zero Dawn",
+   "steam": 1151640,
+   "locations": [
+    {
+     "label": "All versions - Complete Edition",
+     "path": "{DOCUMENTS}/Horizon Zero Dawn/Saved Game"
+    },
+    {
+     "label": "All versions - Remastered",
+     "path": "{DOCUMENTS}/Horizon Zero Dawn Remastered/*"
+    }
+   ]
+  },
+  {
+   "id": "the-last-of-us-part-i",
+   "name": "The Last of Us Part I",
+   "steam": 1888930,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{SAVEDGAMES}/The Last of Us Part I/users/*/savedata"
+    }
+   ]
+  },
+  {
+   "id": "the-last-of-us-part-ii",
+   "name": "The Last of Us Part II",
+   "steam": 2531310,
+   "locations": [
+    {
+     "label": "All versions - Remastered",
+     "path": "{DOCUMENTS}/The Last of Us Part II/*/savedata"
+    }
+   ]
+  },
+  {
+   "id": "life-is-strange",
+   "name": "Life is Strange",
+   "steam": 319630,
+   "locations": [
+    {
+     "label": "Steam - Original",
+     "path": "{STEAM}/userdata/*/319630/remote"
+    },
+    {
+     "label": "All versions - Original",
+     "path": "{DOCUMENTS}/My Games/Life Is Strange/Saves"
+    },
+    {
+     "label": "All versions - Remastered",
+     "path": "{LOCALAPPDATA}/LiS/Saved/SaveGames"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/319630/remote"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/319630/remote"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/319630/remote"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/319630"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/319630/remote"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/319630/remote"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/319630/Saves"
+    }
+   ]
+  },
+  {
+   "id": "life-is-strange-2",
+   "name": "Life is Strange 2",
+   "steam": 532210,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{LOCALAPPDATA}/Dontnod/*/LIS2/Saved/SaveGames"
+    }
+   ]
+  },
+  {
+   "id": "mafia-definitive-edition",
+   "name": "Mafia: Definitive Edition",
+   "steam": 1030840,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/My Games/Mafia Definitive Edition/Data/*/gamesaves"
+    }
+   ]
+  },
+  {
+   "id": "mafia-the-old-country",
+   "name": "Mafia: The Old Country",
+   "steam": 1941540,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{LOCALAPPDATA}/Hangar 13 Games/Mafia The Old Country/SaveGames/*"
+    }
+   ]
+  },
+  {
+   "id": "marvels-guardians-of-the-galaxy",
+   "name": "Marvel's Guardians of the Galaxy",
+   "steam": 1088850,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/1088850/remote"
+    },
+    {
+     "label": "Epic Games",
+     "path": "{APPDATA}/Epic/Eidos Montreal/Marvel's Guardians of the Galaxy"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/1088850/remote"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/1088850/remote"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/1088850/remote"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/1088850"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/1088850/remote"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/1088850/remote"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/1088850/Saves"
+    }
+   ]
+  },
+  {
+   "id": "marvels-spider-man",
+   "name": "Marvel's Spider-Man",
+   "steam": 1817070,
+   "locations": [
+    {
+     "label": "All versions - Remastered",
+     "path": "{DOCUMENTS}/Marvel's Spider-Man Remastered/*"
+    }
+   ]
+  },
+  {
+   "id": "marvels-spider-man-2",
+   "name": "Marvel's Spider-Man 2",
+   "steam": 2651280,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/Marvel's Spider-Man 2/*"
+    }
+   ]
+  },
+  {
+   "id": "mass-effect-2",
+   "name": "Mass Effect 2",
+   "steam": 2362420,
+   "locations": [
+    {
+     "label": "All versions - Original",
+     "path": "{DOCUMENTS}/BioWare/Mass Effect 2"
+    },
+    {
+     "label": "All versions - Legendary Edition",
+     "path": "{DOCUMENTS}/BioWare/Mass Effect Legendary Edition/Save"
+    }
+   ]
+  },
+  {
+   "id": "mass-effect-3",
+   "name": "Mass Effect 3",
+   "steam": 1238020,
+   "locations": [
+    {
+     "label": "All versions - Original",
+     "path": "{DOCUMENTS}/BioWare/Mass Effect 3/Save"
+    },
+    {
+     "label": "All versions - Legendary Edition",
+     "path": "{DOCUMENTS}/BioWare/Mass Effect Legendary Edition/Save"
+    }
+   ]
+  },
+  {
+   "id": "max-payne-2-the-fall-of-max-payne",
+   "name": "Max Payne 2: The Fall of Max Payne",
+   "steam": 12150,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/Max Payne 2 Savegames"
+    }
+   ]
+  },
+  {
+   "id": "max-payne-3",
+   "name": "Max Payne 3",
+   "steam": 204100,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/Rockstar Games/Max Payne 3/Profiles/*"
+    }
+   ]
+  },
+  {
+   "id": "metal-gear-solid-delta-snake-eater",
+   "name": "Metal Gear Solid Delta: Snake Eater",
+   "steam": 2417610,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{LOCALAPPDATA}/MGSDelta/Saved/SaveGames/*"
+    }
+   ]
+  },
+  {
+   "id": "metal-gear-solid-v-the-phantom-pain",
+   "name": "Metal Gear Solid V: The Phantom Pain",
+   "steam": 287700,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/287700/local"
+    },
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/311340/remote"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/311340/remote"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/311340/remote"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/311340/remote"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/311340"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/311340/remote"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/311340/remote"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/311340/Saves"
+    }
+   ]
+  },
+  {
+   "id": "metro-exodus",
+   "name": "Metro Exodus",
+   "steam": 412020,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{SAVEDGAMES}/metro exodus"
+    },
+    {
+     "label": "Steam - Enhanced Edition",
+     "path": "{STEAM}/userdata/*/1449560/remote"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/1449560/remote"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/1449560/remote"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/1449560/remote"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/1449560"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/1449560/remote"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/1449560/remote"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/1449560/Saves"
+    }
+   ]
+  },
+  {
+   "id": "need-for-speed-most-wanted-2005",
+   "name": "Need for Speed: Most Wanted (2005)",
+   "steam": null,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/NFS Most Wanted/*"
+    }
+   ]
+  },
+  {
+   "id": "nobody-wants-to-die",
+   "name": "Nobody Wants to Die",
+   "steam": 1939970,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{LOCALAPPDATA}/detnoir/Saved/SaveGames"
+    }
+   ]
+  },
+  {
+   "id": "a-plague-tale-requiem",
+   "name": "A Plague Tale: Requiem",
+   "steam": 1182900,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/1182900/remote"
+    },
+    {
+     "label": "GOG",
+     "path": "{LOCALAPPDATA}/GOG.com/Galaxy/Applications/55243620139303375/Storage/Shared/Files"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/1182900/remote"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/1182900/remote"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/1182900/remote"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/1182900"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/1182900/remote"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/1182900/remote"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/1182900/Saves"
+    }
+   ]
+  },
+  {
+   "id": "pragmata",
+   "name": "Pragmata",
+   "steam": 3357650,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/3357650/remote/win64_save"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/3357650/remote/win64_save"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/3357650/remote/win64_save"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/3357650/remote/win64_save"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/3357650"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/3357650/remote/win64_save"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/3357650/remote/win64_save"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/3357650/Saves/win64_save"
+    }
+   ]
+  },
+  {
+   "id": "quantum-break",
+   "name": "Quantum Break",
+   "steam": 474960,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{LOCALAPPDATA}/QuantumBreak"
+    }
+   ]
+  },
+  {
+   "id": "the-quarry",
+   "name": "The Quarry",
+   "steam": 1577120,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{LOCALAPPDATA}/TheQuarry/Saved/SaveGames"
+    }
+   ]
+  },
+  {
+   "id": "red-dead-redemption-2",
+   "name": "Red Dead Redemption 2",
+   "steam": 1174180,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/Rockstar Games/Red Dead Redemption 2/Profiles/*"
+    }
+   ]
+  },
+  {
+   "id": "resident-evil-2",
+   "name": "Resident Evil 2",
+   "steam": 883710,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/883710/remote"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/883710/remote"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/883710/remote"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/883710/remote"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/883710"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/883710/remote"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/883710/remote"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/883710/Saves"
+    }
+   ]
+  },
+  {
+   "id": "resident-evil-3",
+   "name": "Resident Evil 3",
+   "steam": 952060,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/952060/remote"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/952060/remote"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/952060/remote"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/952060/remote"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/952060"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/952060/remote"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/952060/remote"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/952060/Saves"
+    }
+   ]
+  },
+  {
+   "id": "resident-evil-4",
+   "name": "Resident Evil 4",
+   "steam": 2050650,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/2050650/remote/win64_save"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/2050650/remote/win64_save"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/2050650/remote/win64_save"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/2050650/remote/win64_save"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/2050650"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/2050650/remote/win64_save"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/2050650/remote/win64_save"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/2050650/Saves/win64_save"
+    }
+   ]
+  },
+  {
+   "id": "resident-evil-7-biohazard",
+   "name": "Resident Evil 7: Biohazard",
+   "steam": 418370,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/418370/remote/win64_save"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/418370/remote/win64_save"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/418370/remote/win64_save"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/418370/remote/win64_save"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/418370"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/418370/remote/win64_save"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/418370/remote/win64_save"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/418370/Saves/win64_save"
+    }
+   ]
+  },
+  {
+   "id": "resident-evil-requiem",
+   "name": "Resident Evil Requiem",
+   "steam": 3764200,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/3764200/remote/win64_save"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/3764200/remote/win64_save"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/3764200/remote/win64_save"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/3764200/remote/win64_save"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/3764200"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/3764200/remote/win64_save"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/3764200/remote/win64_save"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/3764200/Saves/win64_save"
+    }
+   ]
+  },
+  {
+   "id": "resident-evil-village",
+   "name": "Resident Evil Village",
+   "steam": 1196590,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/1196590/remote/win64_save"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/1196590/remote/win64_save"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/1196590/remote/win64_save"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/1196590/remote/win64_save"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/1196590"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/1196590/remote/win64_save"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/1196590/remote/win64_save"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/1196590/Saves/win64_save"
+    }
+   ]
+  },
+  {
+   "id": "tomb-raider-2013",
+   "name": "Tomb Raider (2013)",
+   "steam": 203160,
+   "locations": [
+    {
+     "label": "Steam",
+     "path": "{STEAM}/userdata/*/203160/remote"
+    },
+    {
+     "label": "GOG",
+     "path": "{DOCUMENTS}/My Games/Tomb Raider"
+    },
+    {
+     "label": "Epic Games",
+     "path": "{DOCUMENTS}/Tomb Raider/*"
+    },
+    {
+     "label": "Cracked: CODEX",
+     "path": "{PUBLIC}/Documents/Steam/CODEX/203160/remote"
+    },
+    {
+     "label": "Cracked: CODEX (alternative)",
+     "path": "{APPDATA}/Steam/CODEX/203160/remote"
+    },
+    {
+     "label": "Cracked: RUNE",
+     "path": "{PUBLIC}/Documents/Steam/RUNE/203160/remote"
+    },
+    {
+     "label": "Cracked: EMPRESS",
+     "path": "{APPDATA}/EMPRESS/203160"
+    },
+    {
+     "label": "Repack: Goldberg emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/Goldberg SteamEmu Saves/203160/remote"
+    },
+    {
+     "label": "Repack: GSE emulator (FitGirl, DODI...)",
+     "path": "{APPDATA}/GSE Saves/203160/remote"
+    },
+    {
+     "label": "Cracked: OnlineFix",
+     "path": "{PUBLIC}/Documents/OnlineFix/203160/Saves"
+    }
+   ]
+  },
+  {
+   "id": "uncharted-4-a-thiefs-end",
+   "name": "Uncharted 4: A Thief's End",
+   "steam": 1659420,
+   "locations": [
+    {
+     "label": "All versions - Legacy of Thieves Collection",
+     "path": "{SAVEDGAMES}/Uncharted Legacy of Thieves Collection/users/*"
+    }
+   ]
+  },
+  {
+   "id": "uncharted-the-lost-legacy",
+   "name": "Uncharted: The Lost Legacy",
+   "steam": 1659420,
+   "locations": [
+    {
+     "label": "All versions - Legacy of Thieves Collection",
+     "path": "{SAVEDGAMES}/Uncharted Legacy of Thieves Collection/users/*"
+    }
+   ]
+  },
+  {
+   "id": "until-dawn",
+   "name": "Until Dawn",
+   "steam": 2172010,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/My Games/Bates/Saved/SaveGames/*"
+    }
+   ]
+  },
+  {
+   "id": "vampyr",
+   "name": "Vampyr",
+   "steam": 427290,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{LOCALAPPDATA}/AVGame/Saved/SaveGames"
+    }
+   ]
+  },
+  {
+   "id": "the-witcher-3-wild-hunt",
+   "name": "The Witcher 3: Wild Hunt",
+   "steam": 292030,
+   "locations": [
+    {
+     "label": "All versions",
+     "path": "{DOCUMENTS}/The Witcher 3/gamesaves"
+    }
+   ]
+  }
+ ]
+}

@@ -11,8 +11,9 @@ ASSETS = os.path.join(SRC, "savewatch", "assets")
 a = Analysis(
     [os.path.join(ROOT, "launcher.py")],
     pathex=[SRC],
-    datas=[(os.path.join(ASSETS, "icon.ico"), "."), (os.path.join(ASSETS, "icon.png"), ".")],
-    hiddenimports=["savewatch.app", "savewatch.cli"],
+    datas=[(os.path.join(ASSETS, "icon.ico"), "."), (os.path.join(ASSETS, "icon.png"), "."),
+           (os.path.join(SRC, "savewatch", "data", "games.json"), os.path.join("savewatch", "data"))],
+    hiddenimports=["savewatch.app", "savewatch.cli", "savewatch.picker", "savewatch.catalog"],
     excludes=[
         "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.QtQml",
         "PySide6.QtQuick", "PySide6.Qt3DCore", "PySide6.QtMultimedia", "PySide6.QtCharts",

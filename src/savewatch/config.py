@@ -69,6 +69,7 @@ class GameProfile:
     interval_minutes: float = 5.0
     keep: int = 10
     id: str = field(default_factory=_new_id)
+    game_id: str = ""           # entry in the built-in game list, "" for custom games
 
     @classmethod
     def from_dict(cls, data: object) -> "GameProfile | None":
@@ -83,6 +84,7 @@ class GameProfile:
             p.interval_minutes = float(p.interval_minutes)
             p.keep = int(p.keep)
             p.id = str(p.id) or _new_id()
+            p.game_id = str(p.game_id or "")
             return p
         except (TypeError, ValueError):
             return None
@@ -97,6 +99,7 @@ class Settings:
     start_minimized: bool = False
     auto_start_watching: bool = False
     undo_days: int = 7          # how long restore undo points are kept, 0 = forever
+    download_covers: bool = True  # game covers from Steam's image server
 
     # ------------------------------------------------------------ profiles
     def active(self) -> GameProfile | None:
@@ -158,7 +161,7 @@ class Settings:
 
         s = cls()
         for key in ("full_backup_on_start", "minimize_to_tray", "start_minimized",
-                    "auto_start_watching"):
+                    "auto_start_watching", "download_covers"):
             if isinstance(data.get(key), bool):
                 setattr(s, key, data[key])
         try:

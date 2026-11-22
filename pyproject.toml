@@ -43,7 +43,7 @@ savewatch-gui = "savewatch.app:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-savewatch = ["assets/*"]
+savewatch = ["assets/*", "data/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
