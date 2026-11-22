@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "savewatch"
-version = "0.1.0"
-description = "Versioned backup watcher for game save folders: timestamped copies, hard-link dedup, never mirrors deletions."
+version = "0.2.0"
+description = "Versioned backup watcher for game save folders: per-game profiles, timestamped copies, one-click restore with undo, hard-link dedup."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }

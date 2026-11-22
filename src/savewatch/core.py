@@ -17,6 +17,20 @@ Files that did not change since the previous version are hard-linked instead
 of copied, so a 250-file save slot is not rewritten because one file changed.
 Deletions are never mirrored: if a save disappears from the source its old
 versions stay in the backup folder, which is the whole point of the tool.
+
+How a restore works
+-------------------
+Restoring a version never destroys anything that cannot be brought back::
+
+    1. the live save is copied into  <backup>/.savewatch_undo/<save>/<stamp>/
+       (plus a <stamp>.json describing it) - this is the undo point
+    2. the chosen version is copied next to the live save under a temp name
+    3. live save -> temp "old" name, temp "new" copy -> live name (renames)
+    4. the "old" copy is deleted - it is safe in the undo area
+
+Restored files are real copies, never hard links, so a game writing into
+them can not reach back into the backup.  Undo points expire after a number
+of days (`purge_undo_points`).
 """
 
 from __future__ import annotations
@@ -26,16 +40,27 @@ import json
 import os
 import re
 import shutil
+import stat
+import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Callable
 
 STATE_FILENAME = ".savewatch_state.json"
 LOG_FILENAME = "SaveWatch_history.log"
+UNDO_DIRNAME = ".savewatch_undo"
 STAGING_SUFFIX = ".incomplete"
+# Temporary names used inside the *source* folder during a restore.  The
+# scanner ignores them so a crash mid-restore can never be backed up as a save.
+SOURCE_TEMP_SUFFIX = ".savewatch-tmp"
 VERSION_RE = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(_\d+)?$")
+STAMP_FORMAT = "%Y-%m-%d_%H-%M-%S"
 
 LogFn = Callable[[str, str], None]
+
+
+def _no_log(level: str, text: str) -> None:
+    pass
 
 
 def human_bytes(n: float) -> str:
@@ -94,6 +119,8 @@ def scan_source(root: str) -> dict[str, dict]:
     """Signature of every top-level entry inside `root`."""
     out: dict[str, dict] = {}
     for name in sorted(os.listdir(root)):
+        if name.endswith(SOURCE_TEMP_SUFFIX):
+            continue  # leftover of an interrupted restore, not a save
         sig = entry_signature(os.path.join(root, name))
         if sig is not None:
             out[name] = sig
@@ -199,7 +226,7 @@ def latest_version(entry_dir: str) -> str | None:
 
 
 def version_stamp(entry_dir: str, now: datetime | None = None) -> str:
-    base = (now or datetime.now()).strftime("%Y-%m-%d_%H-%M-%S")
+    base = (now or datetime.now()).strftime(STAMP_FORMAT)
     name = base
     n = 1
     while os.path.exists(os.path.join(entry_dir, name)):
@@ -291,8 +318,12 @@ def is_inside(child: str, parent: str) -> bool:
 
 
 def run_backup_cycle(source: str, backup_root: str, keep: int, state: dict,
-                     log: LogFn, cancelled: Callable[[], bool] = lambda: False) -> dict:
-    """One pass.  Mutates `state` and returns a stats dict (see `empty_stats`)."""
+                     log: LogFn, cancelled: Callable[[], bool] = lambda: False,
+                     undo_days: int | None = None) -> dict:
+    """One pass.  Mutates `state` and returns a stats dict (see `empty_stats`).
+
+    `undo_days` (when given) also expires restore undo points older than that.
+    """
     stats = empty_stats()
 
     if not os.path.isdir(source):
@@ -300,6 +331,8 @@ def run_backup_cycle(source: str, backup_root: str, keep: int, state: dict,
         stats["errors"] += 1
         return stats
     os.makedirs(backup_root, exist_ok=True)
+    if undo_days is not None:
+        purge_undo_points(backup_root, undo_days, log)
 
     current = scan_source(source)
     previous = state.setdefault("entries", {})
@@ -374,3 +407,358 @@ def summarize_stats(stats: dict) -> str:
     if stats["errors"]:
         bits.append(f"{stats['errors']} error(s)")
     return " - ".join(bits) + "."
+
+
+# --------------------------------------------------------------- browsing
+
+def parse_stamp(name: str) -> datetime | None:
+    """Creation time encoded in a version / undo folder name."""
+    if not VERSION_RE.match(name):
+        return None
+    try:
+        return datetime.strptime(name[:19], STAMP_FORMAT)
+    except ValueError:
+        return None
+
+
+def humanize_age(then: datetime | None, now: datetime | None = None) -> str:
+    """'just now', '5 minutes ago', 'yesterday', '3 weeks ago' ..."""
+    if then is None:
+        return "unknown"
+    secs = int(((now or datetime.now()) - then).total_seconds())
+    if secs < 0:
+        return "just now"
+
+    def unit(n: int, word: str) -> str:
+        return f"{n} {word}{'' if n == 1 else 's'} ago"
+
+    if secs < 45:
+        return "just now"
+    if secs < 3600:
+        return unit(max(1, round(secs / 60)), "minute")
+    if secs < 86400:
+        return unit(secs // 3600, "hour")
+    days = secs // 86400
+    if days == 1:
+        return "yesterday"
+    if days < 14:
+        return unit(days, "day")
+    if days < 60:
+        return unit(days // 7, "week")
+    if days < 365:
+        return unit(days // 30, "month")
+    return unit(days // 365, "year")
+
+
+def folder_stats(path: str) -> tuple[int, int]:
+    """(file count, total bytes) of everything beneath `path`."""
+    files = total = 0
+    for root, _dirs, names in os.walk(path):
+        for name in names:
+            try:
+                total += os.stat(os.path.join(root, name)).st_size
+                files += 1
+            except OSError:
+                pass
+    return files, total
+
+
+def list_backup_entries(backup_root: str) -> list[dict]:
+    """Every save that has at least one version, A-Z.
+
+    Each item: name, versions (count), latest (folder name), latest_time.
+    """
+    out: list[dict] = []
+    try:
+        names = os.listdir(backup_root)
+    except OSError:
+        return out
+    for name in sorted(names, key=str.lower):
+        path = os.path.join(backup_root, name)
+        if name == UNDO_DIRNAME or not os.path.isdir(path):
+            continue
+        versions = list_versions(path)
+        if not versions:
+            continue
+        out.append({"name": name, "versions": len(versions), "latest": versions[-1],
+                    "latest_time": parse_stamp(versions[-1])})
+    return out
+
+
+def version_details(backup_root: str, name: str, version: str) -> dict:
+    """Everything the UI shows about one version."""
+    path = os.path.join(backup_root, name, version)
+    files, size = folder_stats(path)
+    return {"name": name, "version": version, "path": path,
+            "created": parse_stamp(version), "files": files, "bytes": size}
+
+
+# ---------------------------------------------------------------- restore
+
+def _make_writable_and_retry(func, path, _exc) -> None:
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+def remove_path(path: str) -> None:
+    """Delete a file or a whole folder, read-only files included."""
+    if os.path.isdir(path) and not os.path.islink(path):
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=_make_writable_and_retry)
+        else:  # pragma: no cover - exercised on 3.10/3.11
+            shutil.rmtree(path, onerror=_make_writable_and_retry)
+    elif os.path.lexists(path):
+        try:
+            os.chmod(path, stat.S_IWRITE)
+        except OSError:
+            pass
+        os.remove(path)
+
+
+def entry_kind(source: str, name: str, data_dir: str) -> str:
+    """'file' or 'dir': what shape the save takes in the source folder.
+
+    A single-file save is stored as <version>/<name>; a folder save stores the
+    folder's contents.  Only a folder holding exactly one file of its own name
+    is ambiguous, and then the live save (if any) decides.
+    """
+    try:
+        items = os.listdir(data_dir)
+    except OSError:
+        return "dir"
+    single = items == [name] and os.path.isfile(os.path.join(data_dir, name))
+    if not single:
+        return "dir"
+    return "dir" if os.path.isdir(os.path.join(source, name)) else "file"
+
+
+def _undo_dir(backup_root: str, name: str) -> str:
+    return os.path.join(backup_root, UNDO_DIRNAME, name)
+
+
+def create_undo_point(source: str, backup_root: str, name: str, reason: str) -> str:
+    """Snapshot the live save `name` into the undo area.  Returns the undo id.
+
+    If the save does not exist right now the undo point records that, and
+    undoing it removes the save again.
+    """
+    live = os.path.join(source, name)
+    undo_dir = _undo_dir(backup_root, name)
+    os.makedirs(undo_dir, exist_ok=True)
+    stamp = version_stamp(undo_dir)
+    while os.path.exists(os.path.join(undo_dir, stamp + ".json")):
+        stamp = version_stamp(undo_dir, datetime.now() + timedelta(seconds=1))
+
+    meta = {"entry": name, "created": datetime.now().isoformat(timespec="seconds"),
+            "reason": reason, "absent": not os.path.lexists(live), "kind": None,
+            "files": 0, "bytes": 0}
+    if not meta["absent"]:
+        staging = os.path.join(undo_dir, "_staging" + STAGING_SUFFIX)
+        if os.path.exists(staging):
+            remove_path(staging)
+        try:
+            # Unchanged files are hard-linked from the newest backup version:
+            # both live in the backup area, so that is safe and free.
+            copy_entry(live, staging, latest_version(os.path.join(backup_root, name)))
+            os.replace(staging, os.path.join(undo_dir, stamp))
+        except Exception:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        meta["kind"] = "file" if os.path.isfile(live) else "dir"
+        meta["files"], meta["bytes"] = folder_stats(os.path.join(undo_dir, stamp))
+
+    with open(os.path.join(undo_dir, stamp + ".json"), "w", encoding="utf-8") as fh:
+        json.dump(meta, fh, indent=1)
+    return stamp
+
+
+def list_undo_points(backup_root: str, name: str | None = None) -> list[dict]:
+    """Undo points, newest first.  Limited to one save when `name` is given."""
+    root = os.path.join(backup_root, UNDO_DIRNAME)
+    try:
+        entries = [name] if name is not None else sorted(os.listdir(root))
+    except OSError:
+        return []
+    out: list[dict] = []
+    for entry in entries:
+        folder = os.path.join(root, entry)
+        try:
+            files = os.listdir(folder)
+        except OSError:
+            continue
+        for fn in files:
+            stamp = fn[:-5]
+            if not fn.endswith(".json") or not VERSION_RE.match(stamp):
+                continue
+            try:
+                with open(os.path.join(folder, fn), "r", encoding="utf-8") as fh:
+                    meta = json.load(fh)
+            except (OSError, ValueError):
+                continue
+            if not isinstance(meta, dict):
+                continue
+            meta["id"] = stamp
+            meta["entry"] = entry
+            meta["created_time"] = parse_stamp(stamp)
+            out.append(meta)
+    out.sort(key=lambda m: (m["created_time"] or datetime.min, m["id"]), reverse=True)
+    return out
+
+
+def delete_undo_point(backup_root: str, name: str, undo_id: str) -> None:
+    folder = _undo_dir(backup_root, name)
+    data = os.path.join(folder, undo_id)
+    if os.path.isdir(data):
+        remove_path(data)
+    meta = os.path.join(folder, undo_id + ".json")
+    if os.path.exists(meta):
+        os.remove(meta)
+    try:
+        os.rmdir(folder)  # only succeeds once it is empty
+        os.rmdir(os.path.dirname(folder))
+    except OSError:
+        pass
+
+
+def purge_undo_points(backup_root: str, max_age_days: int, log: LogFn = _no_log,
+                      now: datetime | None = None) -> int:
+    """Delete undo points older than `max_age_days` (0 keeps them forever)."""
+    if max_age_days <= 0:
+        return 0
+    cutoff = (now or datetime.now()) - timedelta(days=max_age_days)
+    removed = 0
+    for point in list_undo_points(backup_root):
+        created = point["created_time"]
+        if created is not None and created < cutoff:
+            try:
+                delete_undo_point(backup_root, point["entry"], point["id"])
+                removed += 1
+                log("prune", f"expired undo point {point['entry']}/{point['id']}")
+            except OSError as exc:
+                log("warn", f"could not remove undo point {point['id']}: {exc}")
+    return removed
+
+
+def _swap_into_source(source: str, name: str, data_dir: str | None, kind: str | None) -> None:
+    """Make source/<name> look exactly like `data_dir` (None = remove it).
+
+    The new copy is fully written before the live save is touched, and the
+    live save is only renamed (not deleted) until the new one is in place, so
+    a failure at any step leaves the original save where it was.
+    """
+    live = os.path.join(source, name)
+    new_tmp = live + ".new" + SOURCE_TEMP_SUFFIX
+    old_tmp = live + ".old" + SOURCE_TEMP_SUFFIX
+    for leftover in (new_tmp, old_tmp):
+        if os.path.lexists(leftover):
+            remove_path(leftover)
+
+    if data_dir is not None:
+        try:
+            if kind == "file":
+                _copy_file_resilient(os.path.join(data_dir, name), new_tmp)
+            else:
+                copy_entry(data_dir, new_tmp)  # no `prev`: real copies, never links
+        except Exception:
+            if os.path.lexists(new_tmp):
+                remove_path(new_tmp)
+            raise
+
+    had_live = os.path.lexists(live)
+    if had_live:
+        try:
+            os.replace(live, old_tmp)
+        except Exception:
+            if os.path.lexists(new_tmp):
+                remove_path(new_tmp)
+            raise
+    try:
+        if data_dir is not None:
+            os.replace(new_tmp, live)
+    except Exception:
+        if had_live:
+            os.replace(old_tmp, live)  # put the original back
+        if os.path.lexists(new_tmp):
+            remove_path(new_tmp)
+        raise
+
+    if had_live:
+        try:
+            remove_path(old_tmp)
+        except OSError:
+            pass  # ignored by the scanner; cleaned up by the next restore
+
+
+def _remember_restored(source: str, backup_root: str, name: str) -> None:
+    """Record the restored save as known, so the next check does not back it
+    up again as if it were a brand-new change."""
+    state = load_state(backup_root)
+    sig = entry_signature(os.path.join(source, name))
+    if sig is None:
+        state["entries"].pop(name, None)
+    else:
+        state["entries"][name] = sig
+    save_state(backup_root, state)
+
+
+def restore_version(source: str, backup_root: str, name: str, version: str,
+                    log: LogFn = _no_log) -> dict:
+    """Put backup version `version` of save `name` back into the source folder.
+
+    The current save is kept as an undo point first.  Returns
+    {"name", "version", "undo_id", "files", "bytes"}.
+    """
+    if not os.path.isdir(source):
+        raise FileNotFoundError(f"source folder is gone: {source}")
+    data_dir = os.path.join(backup_root, name, version)
+    if not VERSION_RE.match(version) or not os.path.isdir(data_dir):
+        raise FileNotFoundError(f"no backup version '{version}' for '{name}'")
+
+    kind = entry_kind(source, name, data_dir)
+    undo_id = create_undo_point(source, backup_root, name, f"before restoring {version}")
+    try:
+        _swap_into_source(source, name, data_dir, kind)
+    except Exception:
+        delete_undo_point(backup_root, name, undo_id)  # nothing changed, nothing to undo
+        raise
+    _remember_restored(source, backup_root, name)
+
+    files, size = folder_stats(data_dir)
+    log("ok", f"restored '{name}' to version {version} ({files} files, {human_bytes(size)}) "
+              f"- previous save kept as undo point {undo_id}")
+    append_history(backup_root, f"RESTORE  {name} <- {version} (undo point {undo_id})")
+    return {"name": name, "version": version, "undo_id": undo_id, "files": files, "bytes": size}
+
+
+def undo_restore(source: str, backup_root: str, name: str, undo_id: str,
+                 log: LogFn = _no_log) -> dict:
+    """Bring back the save as it was when undo point `undo_id` was taken.
+
+    What is live right now becomes a new undo point (so an undo can itself be
+    undone) and the used undo point is deleted.
+    """
+    if not os.path.isdir(source):
+        raise FileNotFoundError(f"source folder is gone: {source}")
+    points = {p["id"]: p for p in list_undo_points(backup_root, name)}
+    meta = points.get(undo_id)
+    if meta is None:
+        raise FileNotFoundError(f"no undo point '{undo_id}' for '{name}'")
+
+    data_dir = None if meta.get("absent") else os.path.join(_undo_dir(backup_root, name), undo_id)
+    if data_dir is not None and not os.path.isdir(data_dir):
+        raise FileNotFoundError(f"undo point '{undo_id}' is missing its files")
+    kind = meta.get("kind") or (entry_kind(source, name, data_dir) if data_dir else None)
+
+    new_id = create_undo_point(source, backup_root, name, f"before undoing {undo_id}")
+    try:
+        _swap_into_source(source, name, data_dir, kind)
+    except Exception:
+        delete_undo_point(backup_root, name, new_id)
+        raise
+    delete_undo_point(backup_root, name, undo_id)
+    _remember_restored(source, backup_root, name)
+
+    what = "removed again (it did not exist then)" if data_dir is None else "put back"
+    log("ok", f"undo: '{name}' as of {undo_id} {what} - redo point {new_id}")
+    append_history(backup_root, f"UNDO     {name} <- undo point {undo_id} (redo point {new_id})")
+    return {"name": name, "undo_id": new_id, "restored": undo_id}
