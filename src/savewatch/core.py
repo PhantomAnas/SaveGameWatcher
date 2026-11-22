@@ -72,6 +72,11 @@ def _no_log(level: str, text: str) -> None:
     pass
 
 
+def plural(n: int, word: str) -> str:
+    """'1 file', '3 files'."""
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
 def human_bytes(n: float) -> str:
     step = 1024.0
     for unit in ("B", "KB", "MB", "GB", "TB"):
@@ -393,7 +398,7 @@ def run_backup_cycle(source: str, backup_root: str, keep: int, state: dict,
         stats["written_bytes"] += tally["written_bytes"]
         stats["linked"] += tally["linked"]
 
-        detail = f"{sig['files']} files, {human_bytes(sig['bytes'])}"
+        detail = f"{plural(sig['files'], 'file')}, {human_bytes(sig['bytes'])}"
         if tally["linked"]:
             detail += (f" - only {tally['written']} rewritten "
                        f"({human_bytes(tally['written_bytes'])}), {tally['linked']} reused")
@@ -740,7 +745,7 @@ def restore_version(source: str, backup_root: str, name: str, version: str,
     _remember_restored(source, backup_root, name)
 
     files, size = folder_stats(data_dir)
-    log("ok", f"restored '{name}' to version {version} ({files} files, {human_bytes(size)}) "
+    log("ok", f"restored '{name}' to version {version} ({plural(files, 'file')}, {human_bytes(size)}) "
               f"- previous save kept as undo point {undo_id}")
     append_history(backup_root, f"RESTORE  {name} <- {version} (undo point {undo_id})")
     return {"name": name, "version": version, "undo_id": undo_id, "files": files, "bytes": size}
@@ -894,7 +899,8 @@ def create_checkpoint(source: str, backup_root: str, title: str, log: LogFn = _n
     _save_checkpoints(backup_root, [*items, record])
     save_state(backup_root, state)
 
-    log("ok", f"checkpoint '{title}' saved: {len(entries)} saves, {files} files, {human_bytes(size)}")
+    log("ok", f"checkpoint '{title}' saved: {plural(len(entries), 'save')}, "
+              f"{plural(files, 'file')}, {human_bytes(size)}")
     for err in errors:
         log("warn", f"checkpoint skipped {err}")
     append_history(backup_root, f"CHECKPOINT '{title}' ({len(entries)} saves)")

@@ -68,6 +68,7 @@ def test_suggest_backup_and_names(tmp_path):
     assert s.suggest_backup('Wh:at?') == str(tmp_path / "SaveBackups" / "What")
     assert safe_folder_name("  ...  ") == "Game"
     assert guess_game_name(r"C:\Users\me\Saved Games\CD Projekt Red\Cyberpunk 2077") == "Cyberpunk 2077"
+    assert guess_game_name(r"C:\Users\me\Documents\The Witcher 3\gamesaves") == "The Witcher 3"
     assert guess_game_name(r"C:\Users\me\AppData\Roaming\EldenRing\76561198000000000") == "EldenRing"
     assert guess_game_name("") == ""
 

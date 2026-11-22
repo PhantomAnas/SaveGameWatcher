@@ -23,7 +23,7 @@ DEFAULT_PROFILE_NAME = "New game"
 
 # Path parts that never name the game itself, so the name guess skips them.
 _GENERIC_PARTS = {
-    "save", "saves", "savegame", "savegames", "saved", "savedata", "savefiles",
+    "save", "saves", "savegame", "savegames", "gamesaves", "saved", "savedata", "savefiles",
     "saved games", "my games", "story", "profiles", "profile", "playerprofiles",
     "public", "remote", "local", "locallow", "roaming", "appdata", "documents",
     "users", "userdata", "steam", "win64", "windows", "wingdk", "data", "game",
@@ -38,7 +38,7 @@ def config_path() -> str:
 def guess_game_name(path: str) -> str:
     """Best guess at a game's name from its save folder path.
 
-    ...\\Baldur's Gate 3\\PlayerProfiles\\Public\\Savegames\\Story -> Baldur's Gate 3
+    ...\\Documents\\The Witcher 3\\gamesaves -> The Witcher 3
     """
     parts = [p for p in re.split(r"[\\/]+", path.strip()) if p]
     for part in reversed(parts):

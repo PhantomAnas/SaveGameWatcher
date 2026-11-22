@@ -34,6 +34,7 @@ from .core import (
     load_state,
     parse_stamp,
     pinned_versions,
+    plural,
     rename_checkpoint,
     restore_checkpoint,
     restore_version,
@@ -687,7 +688,7 @@ class SaveWatchWindow(Backdrop):
         grid.addWidget(section("Check every (minutes)"), 0, 1)
         grid.addWidget(section("Versions to keep  (0 = all)"), 0, 2)
         self.name_edit = QLineEdit()
-        self.name_edit.setPlaceholderText("e.g. Baldur's Gate 3")
+        self.name_edit.setPlaceholderText("e.g. The Witcher 3")
         self.name_edit.textEdited.connect(self._on_name_edited)
         grid.addWidget(self.name_edit, 1, 0)
         self.interval_spin = QDoubleSpinBox()
@@ -1366,7 +1367,7 @@ class SaveWatchWindow(Backdrop):
             when = pt["created_time"]
             what = pt.get("reason") or "before restore"
             size = ("save did not exist" if pt.get("absent")
-                    else f"{pt.get('files', 0)} files, {human_bytes(pt.get('bytes', 0))}")
+                    else f"{plural(pt.get('files', 0), 'file')}, {human_bytes(pt.get('bytes', 0))}")
             stamp = when.strftime("%d %b %H:%M") if when else "?"
             row = RowWidget(what[:1].upper() + what[1:],
                             f"{stamp}  -  {humanize_age(when)}  -  {size}",

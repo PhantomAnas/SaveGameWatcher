@@ -43,7 +43,7 @@ What it keeps on disk:
 
 ## Features
 
-- **Game profiles**: one profile per game, each with its own save folder, backup folder, check interval and versions to keep. Pick a save folder and the game's name is filled in for you (`...\Baldur's Gate 3\PlayerProfiles\Public\Savegames\Story` → *Baldur's Gate 3*).
+- **Game profiles**: one profile per game, each with its own save folder, backup folder, check interval and versions to keep. Pick a save folder and the game's name is filled in for you (`...\Documents\The Witcher 3\gamesaves` → *The Witcher 3*).
 - **Backups & Restore browser**: every save slot, every version with its date, time and age ("3 hours ago"), file count and size.
 - **Safe one-click restore**: the save you have now is copied to an undo point first, the old version is fully copied next to it, then the two are swapped. If the game has a file locked, nothing is changed.
 - **Undo** any restore (and undo the undo). Undo points expire after 7 days by default (configurable, or keep forever).
