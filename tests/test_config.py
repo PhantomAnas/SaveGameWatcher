@@ -61,11 +61,11 @@ def test_find_remove_and_ensure(tmp_path):
     assert s.active() is first and s.active_profile == first.id
 
 
-def test_suggest_backup_and_names():
+def test_suggest_backup_and_names(tmp_path):
     s = Settings()
     assert s.suggest_backup("Hades") == ""
-    s.add_profile("BG3", backup=r"D:\SaveBackups\BG3")
-    assert s.suggest_backup('Wh:at?') .endswith("What")
+    s.add_profile("BG3", backup=str(tmp_path / "SaveBackups" / "BG3"))
+    assert s.suggest_backup('Wh:at?') == str(tmp_path / "SaveBackups" / "What")
     assert safe_folder_name("  ...  ") == "Game"
     assert guess_game_name(r"C:\Users\me\Saved Games\CD Projekt Red\Cyberpunk 2077") == "Cyberpunk 2077"
     assert guess_game_name(r"C:\Users\me\AppData\Roaming\EldenRing\76561198000000000") == "EldenRing"
