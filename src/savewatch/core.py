@@ -22,7 +22,7 @@ How a restore works
 -------------------
 Restoring a version never destroys anything that cannot be brought back::
 
-    1. the live save is copied into  <backup>/.savewatch_undo/<save>/<stamp>/
+    1. the live save is fully copied into  <backup>/.savewatch_undo/<save>/<stamp>/
        (plus a <stamp>.json describing it) - this is the undo point
     2. the chosen version is copied next to the live save under a temp name
     3. live save -> temp "old" name, temp "new" copy -> live name (renames)
@@ -571,9 +571,11 @@ def create_undo_point(source: str, backup_root: str, name: str, reason: str) -> 
         if os.path.exists(staging):
             remove_path(staging)
         try:
-            # Unchanged files are hard-linked from the newest backup version:
-            # both live in the backup area, so that is safe and free.
-            copy_entry(live, staging, latest_version(os.path.join(backup_root, name)))
+            # Always a full copy, never hard links to an older version: the
+            # size+mtime shortcut used for routine backups can be fooled (a
+            # rewrite of equal size within one clock tick, a sync tool that
+            # resets mtimes), and the undo point is the safety net.
+            copy_entry(live, staging)
             os.replace(staging, os.path.join(undo_dir, stamp))
         except Exception:
             shutil.rmtree(staging, ignore_errors=True)

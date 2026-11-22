@@ -128,6 +128,24 @@ def test_restore_single_file_save(tmp_path):
     assert _read(src / "quick.sav") == "B"
 
 
+def test_undo_point_is_a_real_copy_even_if_size_and_mtime_match(tmp_path):
+    """Same size, same mtime, different bytes: the backup shortcut would
+    think nothing changed, but the undo point must still hold the real save."""
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    _write(src / "slot" / "s.sav", "AAAA")
+    state = {"entries": {}}
+    _backup(src, dst, state)
+    version = core.list_versions(str(dst / "slot"))[0]
+    mtime = os.stat(src / "slot" / "s.sav").st_mtime_ns
+    _write(src / "slot" / "s.sav", "BBBB")
+    os.utime(src / "slot" / "s.sav", ns=(mtime, mtime))
+
+    res = core.restore_version(str(src), str(dst), "slot", version)
+    undo_file = dst / core.UNDO_DIRNAME / "slot" / res["undo_id"] / "s.sav"
+    assert _read(undo_file) == "BBBB"
+    assert not os.path.samefile(undo_file, dst / "slot" / version / "s.sav")
+
+
 def test_failed_swap_leaves_the_live_save_untouched(two_versions, monkeypatch):
     src, dst, versions = two_versions
     _write(src / "slot" / "game.sav", "precious")
