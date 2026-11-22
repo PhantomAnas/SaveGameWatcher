@@ -3,7 +3,7 @@
 **Free, open-source game save backup tool for Windows (Python, PySide6): automatically keeps timestamped versions of your save files so a corrupted, overwritten or deleted save is always one click away. Works with any game that saves to a folder.**
 
 SaveWatch: a versioned backup watcher for game save folders. Give each game a profile (its save folder and a backup folder); every few minutes SaveWatch re-scans and copies each save that changed into a new timestamped version. Deleted saves are **never** removed from the backup, and any version can be put back with one click, with an undo in case you change your mind.
-This helps prevent corrupt save games or lost due to power failures or crashes, or if you want to rewind in choice based games.
+So when a save gets corrupted by a crash or a power cut, or you want to rewind a choice in a story game, the earlier version is still there.
 
 ![SaveWatch: game profiles and the watcher](docs/screenshot.png)
 
@@ -13,7 +13,21 @@ This helps prevent corrupt save games or lost due to power failures or crashes, 
 
 ## Why
 
-Most games keep a handful of rolling autosaves and silently overwrite them. SaveWatch keeps its own history beside the game:
+A save file is often the only record of tens or hundreds of hours of play, and games are surprisingly careless with it. Most keep a handful of rolling autosaves and silently overwrite the oldest one, so by the time you notice a problem, every good copy may already be gone. Common ways saves get lost or ruined:
+
+- **Corruption from crashes and power loss.** If the game crashes, freezes, or the PC loses power (outage, blue screen, a forced shutdown, a laptop battery running out) while a save is being written, the file can end up half written and refuse to load.
+- **Bugs and glitches.** A quest that will not trigger, a character stuck in a wall, a broken script or a soft-lock can make a save unplayable, and autosaves keep piling up on top of the broken state.
+- **Overwritten by mistake.** Quicksaving a second before dying, saving over the wrong slot, or an autosave firing at the worst possible moment replaces the save you actually wanted.
+- **Choices you want to undo.** In story and choice-based games (RPGs, visual novels, narrative adventures), one dialogue option can change the rest of the game. Going back lets you see the other outcome without replaying hours.
+- **Character death and hardcore modes.** Permadeath, ironman and "honour" style modes keep a single save and delete or lock it when you die. A backup means one bad fight or a game bug does not cost the whole run. (Whether you use it is up to you.)
+- **Going back for something you missed.** Missable items, collectibles, achievements, a companion you lost, or a build you want to redo from an earlier point.
+- **Game updates and mods.** A patch can change the save format, and adding or removing mods can break a save or leave it depending on a mod you no longer have. A copy from before the update or mod change is the way back.
+- **Cloud sync conflicts.** Steam Cloud and other sync services sometimes replace a newer local save with an older one, or ask you to pick a side in a conflict, and the wrong click wipes your progress.
+- **Accidental deletion.** Starting a "new game" on an occupied slot, a clean-up tool, uninstalling a game that keeps its saves in its install folder, or simply deleting the wrong folder.
+
+SaveWatch watches the save folder in the background and keeps its own timestamped history of every save, beside the game rather than inside it. Nothing is ever removed from the backup because it disappeared from the game, and putting any version back is one click (with an undo).
+
+What it keeps on disk:
 
 ```
 <backup>/
