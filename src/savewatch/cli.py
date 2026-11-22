@@ -14,14 +14,18 @@ from datetime import datetime
 
 from .config import Settings
 from .core import (
+    create_checkpoint,
+    find_checkpoint,
     human_bytes,
     humanize_age,
     is_inside,
     list_backup_entries,
     list_undo_points,
     list_versions,
+    load_checkpoints,
     load_state,
     parse_stamp,
+    restore_checkpoint,
     restore_version,
     run_backup_cycle,
     summarize_stats,
@@ -52,6 +56,11 @@ def build_parser() -> argparse.ArgumentParser:
                    help="version folder to restore, e.g. 2026-11-22_14-30-05")
     p.add_argument("--undo", metavar="SAVE",
                    help="undo the last restore of SAVE (uses its newest undo point)")
+    p.add_argument("--checkpoint", metavar="TITLE",
+                   help="save a named checkpoint of every save right now, then exit")
+    p.add_argument("--list-checkpoints", action="store_true", help="list checkpoints and exit")
+    p.add_argument("--restore-checkpoint", metavar="TITLE_OR_ID",
+                   help="put every save of a checkpoint back (each gets an undo point)")
     return p
 
 
@@ -113,7 +122,26 @@ def main(argv: list[str] | None = None) -> int:
     if args.list:
         return _list_backups(backup)
 
+    if args.list_checkpoints:
+        items = load_checkpoints(backup)
+        if not items:
+            print(f"no checkpoints in {backup}")
+        for cp in items:
+            print(f"{cp['title']}  [{cp['id']}]  {humanize_age(cp['created_time'])}, "
+                  f"{len(cp['entries'])} saves, {human_bytes(cp.get('bytes', 0))}")
+        return 0
+
     try:
+        if args.checkpoint is not None:
+            cp = create_checkpoint(source, backup, args.checkpoint, _log)
+            return 1 if cp["errors"] else 0
+        if args.restore_checkpoint:
+            cp = find_checkpoint(backup, args.restore_checkpoint)
+            if cp is None:
+                _log("error", f"no checkpoint '{args.restore_checkpoint}' (see --list-checkpoints)")
+                return 2
+            res = restore_checkpoint(source, backup, cp["id"], _log)
+            return 1 if res["errors"] else 0
         if args.restore:
             version = args.version or (list_versions(os.path.join(backup, args.restore)) or [None])[-1]
             if not version:

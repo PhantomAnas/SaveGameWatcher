@@ -57,3 +57,17 @@ def test_cli_uses_named_profile_and_restores(tmp_path, capsys):
     assert main(["--profile", "Hades", "--undo", "slot"]) == 0
     assert (src / "slot" / "a.sav").read_text() == "new"
     assert main(["--profile", "Hades", "--restore", "missing"]) == 2
+
+
+def test_cli_checkpoints(tmp_path, capsys):
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    os.makedirs(src / "slot")
+    (src / "slot" / "a.sav").write_text("alive")
+    base = ["--source", str(src), "--backup", str(dst)]
+    assert main(base + ["--checkpoint", "Before the dragon"]) == 0
+    (src / "slot" / "a.sav").write_text("dead")
+    assert main(base + ["--list-checkpoints"]) == 0
+    assert "Before the dragon" in capsys.readouterr().out
+    assert main(base + ["--restore-checkpoint", "nope"]) == 2
+    assert main(base + ["--restore-checkpoint", "before the dragon"]) == 0
+    assert (src / "slot" / "a.sav").read_text() == "alive"

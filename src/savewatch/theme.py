@@ -200,6 +200,10 @@ QCheckBox::indicator:disabled {{ border-color: rgba(255,255,255,20); background:
     color: #05060c; background: {P['cyan']}; border-radius: 6px;
     padding: 1px 7px; font-size: 10px; font-weight: 800;
 }}
+#BadgeMagenta {{
+    color: #ffffff; background: {P['magenta']}; border-radius: 6px;
+    padding: 1px 7px; font-size: 10px; font-weight: 800;
+}}
 #AgePill {{
     color: {P['magenta']}; background: rgba(255,61,240,20);
     border: 1px solid rgba(255,61,240,140); border-radius: 11px;

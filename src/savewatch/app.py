@@ -19,6 +19,8 @@ from .config import (
     guess_game_name,
 )
 from .core import (
+    create_checkpoint,
+    delete_checkpoint,
     describe_copy_error,
     empty_stats,
     folder_stats,
@@ -28,8 +30,12 @@ from .core import (
     list_backup_entries,
     list_undo_points,
     list_versions,
+    load_checkpoints,
     load_state,
     parse_stamp,
+    pinned_versions,
+    rename_checkpoint,
+    restore_checkpoint,
     restore_version,
     run_backup_cycle,
     summarize_stats,
@@ -102,6 +108,7 @@ from PySide6.QtWidgets import (  # noqa: E402
     QGraphicsDropShadowEffect,
     QGridLayout,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -407,13 +414,18 @@ class BackupWorker(QObject):
     def run_job(self, job: dict) -> None:
         """Restore or undo, on this thread so it never overlaps a backup cycle."""
         result = dict(job)
+        actions = {
+            "restore": lambda: restore_version(job["source"], job["backup"], job["name"],
+                                               job["ref"], self._emit),
+            "undo": lambda: undo_restore(job["source"], job["backup"], job["name"],
+                                         job["ref"], self._emit),
+            "checkpoint": lambda: create_checkpoint(job["source"], job["backup"], job["ref"],
+                                                    self._emit),
+            "restore_checkpoint": lambda: restore_checkpoint(job["source"], job["backup"],
+                                                             job["ref"], self._emit),
+        }
         try:
-            if job["kind"] == "restore":
-                result.update(restore_version(job["source"], job["backup"], job["name"],
-                                              job["ref"], self._emit))
-            else:
-                result.update(undo_restore(job["source"], job["backup"], job["name"],
-                                           job["ref"], self._emit))
+            result.update(actions[job["kind"]]())
             result["ok"] = True
         except Exception as exc:  # noqa: BLE001
             result["ok"] = False
@@ -515,6 +527,7 @@ class SaveWatchWindow(Backdrop):
         self.pages = QStackedWidget()
         self.pages.addWidget(self._build_watch_page())
         self.pages.addWidget(self._build_backups_page())
+        self.pages.addWidget(self._build_checkpoints_page())
         self.pages.addWidget(self._build_settings_page())
         main.addWidget(self.pages, 1)
         root.addLayout(main, 1)
@@ -630,9 +643,11 @@ class SaveWatchWindow(Backdrop):
         self.stop_btn = button("■  Stop watching", "Danger", self.stop_watching)
         self.stop_btn.setEnabled(False)
         self.stop_btn.hide()  # Start and Stop share one spot
+        self.checkpoint_btn = button("★  Save checkpoint", "Restore", self.save_checkpoint)
+        self.checkpoint_btn.setToolTip("Back up every save right now under a name you choose, "
+                                       "e.g. 'Before the big choice'. Never pruned.")
         self.now_btn = button("Back up now", None, self.backup_now)
-        self.open_btn = button("Open backup folder", None, self.open_backup_folder)
-        for b in (self.start_btn, self.stop_btn, self.now_btn, self.open_btn):
+        for b in (self.start_btn, self.stop_btn, self.checkpoint_btn, self.now_btn):
             row.addWidget(b)
         return row
 
@@ -642,7 +657,7 @@ class SaveWatchWindow(Backdrop):
         self.tab_group = QButtonGroup(self)
         self.tab_group.setExclusive(True)
         self.tabs: list[QPushButton] = []
-        for i, text in enumerate(("WATCH", "BACKUPS && RESTORE", "SETTINGS")):
+        for i, text in enumerate(("WATCH", "BACKUPS && RESTORE", "CHECKPOINTS", "SETTINGS")):
             b = QPushButton(text)
             b.setObjectName("Tab")
             b.setFont(head_font(14, QFont.Weight.Bold, 1.5))
@@ -704,8 +719,12 @@ class SaveWatchWindow(Backdrop):
         self.dst_edit.textEdited.connect(self._on_profile_field)
         self.dst_btn = QPushButton("Browse...")
         self.dst_btn.clicked.connect(self._browse_backup)
+        self.open_btn = QPushButton("Open")
+        self.open_btn.setToolTip("Open the backup folder")
+        self.open_btn.clicked.connect(self.open_backup_folder)
         dst_row.addWidget(self.dst_edit, 1)
         dst_row.addWidget(self.dst_btn)
+        dst_row.addWidget(self.open_btn)
         grid.addLayout(dst_row, 5, 0, 1, 3)
         grid.setColumnStretch(0, 1)
         grid.setRowMinimumHeight(2, 26)
@@ -850,6 +869,108 @@ class SaveWatchWindow(Backdrop):
         lay.addWidget(det, 1)
         return page
 
+    def _build_checkpoints_page(self) -> QWidget:
+        page = QWidget()
+        lay = QHBoxLayout(page)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(14)
+
+        left = card()
+        left.setFixedWidth(400)
+        l_lay = QVBoxLayout(left)
+        l_lay.setContentsMargins(14, 14, 14, 14)
+        l_lay.setSpacing(10)
+        head = QHBoxLayout()
+        head.addWidget(section("Checkpoints"))
+        head.addStretch(1)
+        self.cp_count = label("", "Dim", QFont(FONT_FAMILY, 9))
+        head.addWidget(self.cp_count)
+        l_lay.addLayout(head)
+        self.new_cp_btn = QPushButton("★  Save checkpoint now")
+        self.new_cp_btn.setObjectName("Primary")
+        self.new_cp_btn.setMinimumHeight(42)
+        self.new_cp_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.new_cp_btn.clicked.connect(self.save_checkpoint)
+        l_lay.addWidget(self.new_cp_btn)
+        self.cp_list = QListWidget()
+        self.cp_list.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
+        self.cp_list.currentItemChanged.connect(self._on_checkpoint_selected)
+        l_lay.addWidget(self.cp_list, 1)
+        self.cp_empty = label("No checkpoints yet.\n\nBefore a big story choice or a boss fight, "
+                              "press Save checkpoint and give it a name. Every save is backed up "
+                              "and kept until you delete the checkpoint.", "Muted", wrap=True)
+        self.cp_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        l_lay.addWidget(self.cp_empty, 1)
+        lay.addWidget(left)
+
+        det = card()
+        d = QVBoxLayout(det)
+        d.setContentsMargins(22, 16, 22, 18)
+        d.setSpacing(8)
+        d.addWidget(section("Checkpoint"))
+        self.cp_title = ElidedLabel("-", mode=Qt.TextElideMode.ElideRight)
+        self.cp_title.setFont(head_font(30, QFont.Weight.Bold, 0.5))
+        self.cp_title.setMinimumHeight(40)
+        self.cp_title.setStyleSheet(f"color: {PALETTE['magenta']};")
+        glow(self.cp_title, PALETTE["magenta"], 26, 160)
+        d.addWidget(self.cp_title)
+        when_row = QHBoxLayout()
+        self.cp_when = label("", font=head_font(17, QFont.Weight.DemiBold, 0.8))
+        when_row.addWidget(self.cp_when)
+        when_row.addSpacing(8)
+        self.cp_age = label("", "AgePill")
+        when_row.addWidget(self.cp_age)
+        when_row.addStretch(1)
+        d.addLayout(when_row)
+        d.addSpacing(4)
+        info = QGridLayout()
+        info.setHorizontalSpacing(28)
+        info.setVerticalSpacing(4)
+        self.cp_saves_n = label("-", font=head_font(18, QFont.Weight.DemiBold))
+        self.cp_files = label("-", font=head_font(18, QFont.Weight.DemiBold))
+        self.cp_size = label("-", font=head_font(18, QFont.Weight.DemiBold))
+        for col, (title, value) in enumerate((("Saves", self.cp_saves_n), ("Files", self.cp_files),
+                                              ("Size", self.cp_size))):
+            info.addWidget(label(title, "Muted", QFont(FONT_FAMILY, 9)), 0, col)
+            info.addWidget(value, 1, col)
+        info.setColumnStretch(3, 1)
+        d.addLayout(info)
+        d.addSpacing(6)
+
+        act = QHBoxLayout()
+        act.setSpacing(8)
+        self.cp_restore_btn = QPushButton("⟲  Restore checkpoint")
+        self.cp_restore_btn.setObjectName("Restore")
+        self.cp_restore_btn.setMinimumHeight(44)
+        self.cp_restore_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.cp_restore_btn.clicked.connect(self.restore_selected_checkpoint)
+        glow(self.cp_restore_btn, PALETTE["magenta"], 26, 140)
+        self.cp_rename_btn = QPushButton("Rename")
+        self.cp_rename_btn.setMinimumHeight(44)
+        self.cp_rename_btn.clicked.connect(self.rename_selected_checkpoint)
+        self.cp_delete_btn = QPushButton("Delete")
+        self.cp_delete_btn.setObjectName("Danger")
+        self.cp_delete_btn.setMinimumHeight(44)
+        self.cp_delete_btn.clicked.connect(self.delete_selected_checkpoint)
+        act.addWidget(self.cp_restore_btn, 1)
+        act.addWidget(self.cp_rename_btn)
+        act.addWidget(self.cp_delete_btn)
+        d.addLayout(act)
+        d.addWidget(label("Restoring puts every save of this checkpoint back. Each save it replaces "
+                          "is kept as an undo point first (Backups & Restore tab), and saves you "
+                          "made after the checkpoint are never deleted. Close the game first.",
+                          "Hint", wrap=True))
+        d.addSpacing(6)
+        d.addWidget(divider())
+        d.addSpacing(4)
+        d.addWidget(section("Saves in this checkpoint"))
+        self.cp_saves = QListWidget()
+        self.cp_saves.setSelectionMode(QListWidget.SelectionMode.NoSelection)
+        self.cp_saves.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
+        d.addWidget(self.cp_saves, 1)
+        lay.addWidget(det, 1)
+        return page
+
     def _build_settings_page(self) -> QWidget:
         page = QWidget()
         lay = QVBoxLayout(page)
@@ -922,11 +1043,14 @@ class SaveWatchWindow(Backdrop):
         self.tray_toggle.triggered.connect(self._tray_toggle_watch)
         self.tray_now = QAction("Back up now", menu)
         self.tray_now.triggered.connect(self.backup_now)
+        self.tray_checkpoint = QAction("Save checkpoint...", menu)
+        self.tray_checkpoint.triggered.connect(self.save_checkpoint)
         self.tray_open = QAction("Open backup folder", menu)
         self.tray_open.triggered.connect(self.open_backup_folder)
         quit_act = QAction("Quit", menu)
         quit_act.triggered.connect(self.quit_app)
-        for act in (self.tray_show, self.tray_toggle, self.tray_now, self.tray_open):
+        for act in (self.tray_show, self.tray_toggle, self.tray_now, self.tray_checkpoint,
+                    self.tray_open):
             menu.addAction(act)
         menu.addSeparator()
         menu.addAction(quit_act)
@@ -962,6 +1086,8 @@ class SaveWatchWindow(Backdrop):
         self.pages.setCurrentIndex(index)
         if index == 1:
             self._refresh_backups()
+        elif index == 2:
+            self._refresh_checkpoints()
 
     # ----------------------------------------------------------- profiles
     def _profile_subtitle(self, p: GameProfile) -> str:
@@ -1026,6 +1152,7 @@ class SaveWatchWindow(Backdrop):
         self._stats_cache.clear()
         self._refresh_header()
         self._refresh_backups()
+        self._refresh_checkpoints()
 
     def _on_name_edited(self, text: str) -> None:
         self.profile.name = text.strip() or DEFAULT_PROFILE_NAME
@@ -1163,11 +1290,17 @@ class SaveWatchWindow(Backdrop):
         self.version_list.clear()
         name = current.data(ROLE) if current else None
         versions = list(reversed(list_versions(os.path.join(self.profile.backup, name)))) if name else []
+        self._pins = pinned_versions(self.profile.backup, name) if name else {}
         for i, v in enumerate(versions):
             when = parse_stamp(v)
             title = when.strftime("%a %d %b  %H:%M:%S") if when else v
-            row = RowWidget(title, humanize_age(when), title_font=head_font(15, QFont.Weight.DemiBold))
-            if i == 0:
+            sub = humanize_age(when)
+            if v in self._pins:
+                sub = f"★ {self._pins[v]}  -  {sub}"
+            row = RowWidget(title, sub, title_font=head_font(15, QFont.Weight.DemiBold))
+            if v in self._pins:
+                row.set_badge("★ PINNED", "BadgeMagenta")
+            elif i == 0:
                 row.set_badge("LATEST", "BadgeCyan")
             item = QListWidgetItem()
             item.setData(ROLE, v)
@@ -1210,7 +1343,8 @@ class SaveWatchWindow(Backdrop):
         path = os.path.join(self.profile.backup, name, version)
         when = parse_stamp(version)
         files, size = self._version_stats(path)
-        self.det_slot.set_full_text(name)
+        pin = getattr(self, "_pins", {}).get(version)
+        self.det_slot.set_full_text(f"{name}   ★ {pin}" if pin else name)
         self.det_date.setText(when.strftime("%d %b %Y") if when else version)
         self.det_time.setText(when.strftime("%A   %H:%M:%S") if when else "")
         self.det_age.setText(humanize_age(when))
@@ -1253,11 +1387,17 @@ class SaveWatchWindow(Backdrop):
         self.restore_btn.setEnabled(has_version and not self.busy)
         self.open_ver_btn.setEnabled(has_version)
         self.undo_btn.setEnabled(self.undo_list.currentItem() is not None and not self.busy)
+        if hasattr(self, "cp_list"):
+            has_cp = self.cp_list.currentItem() is not None
+            for b in (self.cp_restore_btn, self.cp_rename_btn, self.cp_delete_btn):
+                b.setEnabled(has_cp and not self.busy)
 
     def _refresh_ages(self) -> None:
         self._refresh_chips()
         if self.pages.currentIndex() == 1:
             self._refresh_backups()
+        elif self.pages.currentIndex() == 2:
+            self._refresh_checkpoints()
 
     def _check_restore_paths(self) -> tuple[str, str] | None:
         p = self.profile
@@ -1320,28 +1460,195 @@ class SaveWatchWindow(Backdrop):
         self._run_job({"kind": "undo", "source": paths[0], "backup": paths[1],
                        "name": name, "ref": undo_id})
 
+    JOB_TEXT = {  # kind: (status pill, verb for errors)
+        "restore": ("RESTORING...", "restore"),
+        "undo": ("UNDOING...", "undo"),
+        "checkpoint": ("SAVING CHECKPOINT...", "save the checkpoint"),
+        "restore_checkpoint": ("RESTORING CHECKPOINT...", "restore the checkpoint"),
+    }
+
     def _run_job(self, job: dict) -> None:
         self._set_busy(True)
         self.tick_timer.stop()
-        self._set_status("RESTORING..." if job["kind"] == "restore" else "UNDOING...", "busy")
+        self._set_status(self.JOB_TEXT[job["kind"]][0], "busy")
         self.request_job.emit(job)
 
     def on_job_done(self, result: dict) -> None:
         self._set_busy(False)
-        name = result["name"]
+        kind, name = result["kind"], result["name"]
         if result.get("ok"):
-            msg = (f"'{name}' restored. The previous save is an undo point."
-                   if result["kind"] == "restore" else f"'{name}' put back.")
+            msg = {
+                "restore": f"'{name}' restored. The previous save is an undo point.",
+                "undo": f"'{name}' put back.",
+                "checkpoint": f"Checkpoint '{name}' saved.",
+                "restore_checkpoint": f"Checkpoint '{name}' restored.",
+            }[kind]
             if self.tray and self.isHidden():
                 self.tray.showMessage(APP_NAME, msg, QSystemTrayIcon.MessageIcon.Information, 4000)
+            if result.get("errors"):
+                self._warn(f"{msg}\n\nSome saves were skipped:\n" + "\n".join(result["errors"][:8]) +
+                           "\n\nIf the game is running, close it and try again.")
         else:
-            self.log("error", f"could not {result['kind']} '{name}': {result['error']} - "
-                              "nothing was changed")
-            self._warn(f"Could not {result['kind']} '{name}':\n{result['error']}\n\n"
+            verb = self.JOB_TEXT[kind][1]
+            self.log("error", f"could not {verb} '{name}': {result['error']} - nothing was changed")
+            self._warn(f"Could not {verb} '{name}':\n{result['error']}\n\n"
                        "Nothing was changed. If the game is running, close it and try again.")
         self._refresh_chips()
         self._refresh_backups()
+        self._refresh_checkpoints(select=result.get("id") if kind == "checkpoint" else None)
         self._resume_after_busy()
+
+    # -------------------------------------------------------- checkpoints
+    def save_checkpoint(self) -> None:
+        if self.busy:
+            return
+        if self.isHidden():
+            self.show_window()
+        paths = self._validate()
+        if not paths:
+            return
+        default = f"Checkpoint {datetime.now():%d %b %H:%M}"
+        title, ok = QInputDialog.getText(
+            self, "Save checkpoint",
+            f"Back up every save of {self.profile.name} right now.\n"
+            "Name it so you can find it later, e.g. 'Before the big choice':",
+            QLineEdit.EchoMode.Normal, default)
+        if not ok:
+            return
+        title = " ".join(title.split()) or default
+        self._save_settings()
+        self._run_job({"kind": "checkpoint", "source": paths[0], "backup": paths[1],
+                       "name": title, "ref": title})
+
+    def _refresh_checkpoints(self, select: str | None = None) -> None:
+        root = self.profile.backup
+        items = load_checkpoints(root) if root and os.path.isdir(root) else []
+        keep = select or self._selected(self.cp_list)
+        self._checkpoints = {cp["id"]: cp for cp in items}
+        self._loading = True
+        self.cp_list.clear()
+        for cp in items:
+            when = cp["created_time"]
+            n = len(cp["entries"])
+            sub = (f"{when.strftime('%d %b %Y  %H:%M') if when else '?'}  -  "
+                   f"{humanize_age(when)}  -  {n} save{'s' if n != 1 else ''}")
+            star = label("★")
+            star.setFont(head_font(20, QFont.Weight.Bold))
+            star.setStyleSheet(f"color: {PALETTE['magenta']};")
+            row = RowWidget(cp["title"], sub, star)
+            item = QListWidgetItem()
+            item.setData(ROLE, cp["id"])
+            item.setSizeHint(QSize(0, 60))
+            self.cp_list.addItem(item)
+            self.cp_list.setItemWidget(item, row)
+        self._loading = False
+        self.cp_count.setText(str(len(items)) if items else "")
+        self.cp_list.setVisible(bool(items))
+        self.cp_empty.setVisible(not items)
+        target = 0
+        for i in range(self.cp_list.count()):
+            if self.cp_list.item(i).data(ROLE) == keep:
+                target = i
+        if items:
+            self.cp_list.setCurrentRow(target)
+        self._on_checkpoint_selected(self.cp_list.currentItem())
+
+    def _on_checkpoint_selected(self, current: QListWidgetItem | None, _prev=None) -> None:
+        if self._loading:
+            return
+        cp = self._checkpoints.get(current.data(ROLE)) if current else None
+        self.cp_saves.clear()
+        if cp is None:
+            self.cp_title.set_full_text("-")
+            self.cp_when.setText("")
+            self.cp_age.hide()
+            for w in (self.cp_saves_n, self.cp_files, self.cp_size):
+                w.setText("-")
+            self._update_action_buttons()
+            return
+        when = cp["created_time"]
+        self.cp_title.set_full_text(cp["title"])
+        self.cp_when.setText(when.strftime("%A %d %b %Y   %H:%M:%S") if when else cp["id"])
+        self.cp_age.setText(humanize_age(when))
+        self.cp_age.show()
+        self.cp_saves_n.setText(str(len(cp["entries"])))
+        self.cp_files.setText(f"{cp.get('files', 0):,}")
+        self.cp_size.setText(human_bytes(cp.get("bytes", 0)))
+        for e in cp["entries"]:
+            present = os.path.isdir(os.path.join(self.profile.backup, e["name"], e["version"]))
+            row = RowWidget(e["name"], f"version {e['version']}" if present
+                            else "backup missing - deleted outside SaveWatch",
+                            title_font=head_font(14, QFont.Weight.DemiBold))
+            item = QListWidgetItem()
+            item.setSizeHint(QSize(0, 50))
+            self.cp_saves.addItem(item)
+            self.cp_saves.setItemWidget(item, row)
+        self._update_action_buttons()
+
+    def _selected_checkpoint(self) -> dict | None:
+        cp_id = self._selected(self.cp_list)
+        return getattr(self, "_checkpoints", {}).get(cp_id) if cp_id else None
+
+    def restore_selected_checkpoint(self) -> None:
+        cp = self._selected_checkpoint()
+        if cp is None or self.busy:
+            return
+        paths = self._check_restore_paths()
+        if not paths:
+            return
+        names = [e["name"] for e in cp["entries"]]
+        shown = ", ".join(names[:6]) + (f" and {len(names) - 6} more" if len(names) > 6 else "")
+        when = cp["created_time"]
+        box = QMessageBox(self)
+        box.setWindowTitle("Restore checkpoint")
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setText(f"<b>Restore checkpoint '{cp['title']}'</b><br>from {fmt_when(when)} "
+                    f"({humanize_age(when)})?")
+        box.setInformativeText(
+            f"These {len(names)} saves will be put back: {shown}.\n\n"
+            "Each save that gets replaced is kept as an undo point first. Saves you made after "
+            "this checkpoint are not deleted.\n\nClose the game before restoring.")
+        ok = box.addButton("Restore", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(QMessageBox.StandardButton.Cancel)
+        box.setDefaultButton(ok)
+        box.exec()
+        if box.clickedButton() is not ok:
+            return
+        self._run_job({"kind": "restore_checkpoint", "source": paths[0], "backup": paths[1],
+                       "name": cp["title"], "ref": cp["id"]})
+
+    def rename_selected_checkpoint(self) -> None:
+        cp = self._selected_checkpoint()
+        if cp is None or self.busy:
+            return
+        title, ok = QInputDialog.getText(self, "Rename checkpoint", "New name:",
+                                         QLineEdit.EchoMode.Normal, cp["title"])
+        if not ok or not title.strip():
+            return
+        try:
+            rename_checkpoint(self.profile.backup, cp["id"], title)
+        except OSError as exc:
+            self._warn(f"Could not rename the checkpoint:\n{exc}")
+        self._refresh_checkpoints()
+        self._refresh_backups()
+
+    def delete_selected_checkpoint(self) -> None:
+        cp = self._selected_checkpoint()
+        if cp is None or self.busy:
+            return
+        answer = QMessageBox.question(
+            self, "Delete checkpoint",
+            f"Delete the checkpoint '{cp['title']}'?\n\nIts backups are not deleted right away, "
+            "but they are no longer protected: 'Versions to keep' may prune them later.")
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            delete_checkpoint(self.profile.backup, cp["id"])
+            self.log("info", f"checkpoint '{cp['title']}' deleted (its backups were unpinned)")
+        except OSError as exc:
+            self._warn(f"Could not delete the checkpoint:\n{exc}")
+        self._refresh_checkpoints()
+        self._refresh_backups()
 
     def open_selected_version(self) -> None:
         name = self._selected(self.slot_list)
@@ -1451,9 +1758,11 @@ class SaveWatchWindow(Backdrop):
 
     def _set_busy(self, busy: bool) -> None:
         self.busy = busy
-        self.now_btn.setEnabled(not busy)
+        for b in (self.now_btn, self.checkpoint_btn, self.new_cp_btn):
+            b.setEnabled(not busy)
         if self.tray:
             self.tray_now.setEnabled(not busy)
+            self.tray_checkpoint.setEnabled(not busy)
         self._update_action_buttons()
 
     def _configure_worker(self, src: str, dst: str) -> None:

@@ -2,8 +2,8 @@
 
     python scripts/screenshot.py
 
-Writes docs/screenshot.png (Watch tab) and docs/backups.png (Backups & Restore
-tab).  Uses a throw-away settings file and a temp folder full of fake backups,
+Writes docs/screenshot.png (Watch tab), docs/backups.png (Backups & Restore
+tab) and docs/checkpoints.png (Checkpoints tab).  Uses a throw-away settings file and a temp folder full of fake backups,
 so the real user config is untouched.  Paths shown on screen are placeholders.
 """
 
@@ -61,6 +61,19 @@ def build_demo_backup() -> str:
         for i, (d, h, m) in enumerate(ages):
             make_version(backup, slot, NOW - timedelta(days=d, hours=h, minutes=m),
                          7_800_000 + 310_000 * i)
+    checkpoints = []
+    for title, (d, h, m) in (("Act 1 done - whole party alive", (6, 3, 0)),
+                             ("Before the big choice in Act 2", (2, 5, 0)),
+                             ("Before the final boss", (0, 5, 10))):
+        when = NOW - timedelta(days=d, hours=h, minutes=m)
+        stamp = when.strftime(core.STAMP_FORMAT)
+        for slot in plan:
+            make_version(backup, slot, when, 8_200_000)
+        checkpoints.append({"id": stamp, "title": title, "created": when.isoformat(),
+                            "entries": [{"name": s, "version": stamp} for s in plan],
+                            "files": 12, "bytes": 4 * 8_200_000})
+    with open(os.path.join(backup, core.CHECKPOINTS_FILENAME), "w") as fh:
+        json.dump({"checkpoints": checkpoints}, fh)
     undo_dir = os.path.join(backup, core.UNDO_DIRNAME, "ManualSave-7")
     for minutes, reason in ((26, "before restoring 2026-11-20_19-02-11"),
                             (190, "before restoring 2026-11-18_21-44-37")):
@@ -95,6 +108,7 @@ win.log("ok", "new: 'QuickSave-3' -> 2026-11-22_14-30-05 (12 files, 8.4 MB)")
 win.log("ok", "changed: 'ManualSave-7' -> 2026-11-22_14-35-05 (12 files, 8.6 MB - only 2 rewritten (1.1 MB), 10 reused)")
 win.log("prune", "removed old version ManualSave-7/2026-11-12_20-10-33")
 win.log("ok", "restored 'ManualSave-7' to version 2026-11-20_19-02-11 (3 files, 9.4 MB) - previous save kept as undo point 2026-11-22_14-41-50")
+win.log("ok", "checkpoint 'Before the final boss' saved: 4 saves, 12 files, 31.3 MB")
 win.log("alert", "'AutoSave-1' disappeared from the source - its backups are kept")
 win.log("info", "15 saves checked - 2 backed up (17.0 MB) - 1.1 MB actually written, 10 files reused from the last version.")
 
@@ -128,7 +142,15 @@ for _ in range(5):
     app.processEvents()
 win.grab().save(os.path.join(docs, "backups.png"))
 
+win.tabs[2].click()
+for _ in range(5):
+    app.processEvents()
+win.cp_list.setCurrentRow(1)
+for _ in range(5):
+    app.processEvents()
+win.grab().save(os.path.join(docs, "checkpoints.png"))
+
 win.running = False
 win.quit_app()
 shutil.rmtree(tmp, ignore_errors=True)
-print("wrote docs/screenshot.png and docs/backups.png")
+print("wrote docs/screenshot.png, docs/backups.png and docs/checkpoints.png")

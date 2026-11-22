@@ -31,6 +31,14 @@ Restoring a version never destroys anything that cannot be brought back::
 Restored files are real copies, never hard links, so a game writing into
 them can not reach back into the backup.  Undo points expire after a number
 of days (`purge_undo_points`).
+
+Checkpoints
+-----------
+A checkpoint is a named, manual backup of *every* save in the folder, made
+on demand ("Before the big choice").  Each save gets an ordinary version
+folder; the checkpoint itself is a record in .savewatch_checkpoints.json
+listing those versions.  Versions that belong to a checkpoint are pinned:
+`prune_versions` never removes them.
 """
 
 from __future__ import annotations
@@ -47,6 +55,7 @@ from datetime import datetime, timedelta
 from typing import Callable
 
 STATE_FILENAME = ".savewatch_state.json"
+CHECKPOINTS_FILENAME = ".savewatch_checkpoints.json"
 LOG_FILENAME = "SaveWatch_history.log"
 UNDO_DIRNAME = ".savewatch_undo"
 STAGING_SUFFIX = ".incomplete"
@@ -235,15 +244,20 @@ def version_stamp(entry_dir: str, now: datetime | None = None) -> str:
     return name
 
 
-def prune_versions(entry_dir: str, keep: int, log: LogFn) -> list[str]:
+def prune_versions(entry_dir: str, keep: int, log: LogFn,
+                   pinned: set[str] | dict[str, str] | None = None) -> list[str]:
     """Delete all but the newest `keep` versions.  0 keeps everything.
 
+    Versions that belong to a checkpoint (`pinned`, looked up from the backup
+    folder when not given) are never deleted and do not count towards `keep`.
     Returns the names of the versions that were removed.
     """
     removed: list[str] = []
     if keep <= 0:
         return removed
-    versions = list_versions(entry_dir)
+    if pinned is None:
+        pinned = pinned_versions(os.path.dirname(entry_dir), os.path.basename(entry_dir))
+    versions = [v for v in list_versions(entry_dir) if v not in pinned]
     for old in versions[:-keep] if len(versions) > keep else []:
         try:
             shutil.rmtree(os.path.join(entry_dir, old))
@@ -702,11 +716,11 @@ def _remember_restored(source: str, backup_root: str, name: str) -> None:
 
 
 def restore_version(source: str, backup_root: str, name: str, version: str,
-                    log: LogFn = _no_log) -> dict:
+                    log: LogFn = _no_log, reason: str | None = None) -> dict:
     """Put backup version `version` of save `name` back into the source folder.
 
-    The current save is kept as an undo point first.  Returns
-    {"name", "version", "undo_id", "files", "bytes"}.
+    The current save is kept as an undo point first (described by `reason`).
+    Returns {"name", "version", "undo_id", "files", "bytes"}.
     """
     if not os.path.isdir(source):
         raise FileNotFoundError(f"source folder is gone: {source}")
@@ -715,7 +729,7 @@ def restore_version(source: str, backup_root: str, name: str, version: str,
         raise FileNotFoundError(f"no backup version '{version}' for '{name}'")
 
     kind = entry_kind(source, name, data_dir)
-    undo_id = create_undo_point(source, backup_root, name, f"before restoring {version}")
+    undo_id = create_undo_point(source, backup_root, name, reason or f"before restoring {version}")
     try:
         _swap_into_source(source, name, data_dir, kind)
     except Exception:
@@ -762,3 +776,170 @@ def undo_restore(source: str, backup_root: str, name: str, undo_id: str,
     log("ok", f"undo: '{name}' as of {undo_id} {what} - redo point {new_id}")
     append_history(backup_root, f"UNDO     {name} <- undo point {undo_id} (redo point {new_id})")
     return {"name": name, "undo_id": new_id, "restored": undo_id}
+
+
+# ------------------------------------------------------------ checkpoints
+
+def load_checkpoints(backup_root: str) -> list[dict]:
+    """All checkpoints, newest first.  Each: id, title, created, entries,
+    files, bytes, created_time (datetime)."""
+    try:
+        with open(os.path.join(backup_root, CHECKPOINTS_FILENAME), "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return []
+    items = data.get("checkpoints") if isinstance(data, dict) else None
+    out: list[dict] = []
+    for cp in items if isinstance(items, list) else []:
+        if not (isinstance(cp, dict) and isinstance(cp.get("id"), str)
+                and isinstance(cp.get("entries"), list)):
+            continue
+        cp["entries"] = [e for e in cp["entries"] if isinstance(e, dict)
+                         and isinstance(e.get("name"), str) and isinstance(e.get("version"), str)]
+        cp.setdefault("title", cp["id"])
+        cp["created_time"] = parse_stamp(cp["id"])
+        out.append(cp)
+    out.sort(key=lambda c: c["id"], reverse=True)
+    return out
+
+
+def _save_checkpoints(backup_root: str, items: list[dict]) -> None:
+    clean = [{k: v for k, v in cp.items() if k != "created_time"} for cp in items]
+    clean.sort(key=lambda c: c["id"])
+    path = os.path.join(backup_root, CHECKPOINTS_FILENAME)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump({"checkpoints": clean}, fh, indent=1, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
+def pinned_versions(backup_root: str, name: str) -> dict[str, str]:
+    """{version: checkpoint title} for every version of `name` a checkpoint uses."""
+    out: dict[str, str] = {}
+    for cp in reversed(load_checkpoints(backup_root)):
+        for e in cp["entries"]:
+            if e["name"] == name:
+                out[e["version"]] = cp["title"]
+    return out
+
+
+def find_checkpoint(backup_root: str, key: str) -> dict | None:
+    """Checkpoint by id, or by title (case-insensitive, newest wins)."""
+    items = load_checkpoints(backup_root)
+    for cp in items:
+        if cp["id"] == key:
+            return cp
+    low = key.strip().lower()
+    for cp in items:
+        if cp["title"].lower() == low:
+            return cp
+    return None
+
+
+def create_checkpoint(source: str, backup_root: str, title: str, log: LogFn = _no_log,
+                      now: datetime | None = None) -> dict:
+    """Named backup of every save in `source`, right now.
+
+    Unchanged files are hard-linked from the previous version as usual, so a
+    checkpoint of saves that are already backed up costs almost no space.
+    Returns the checkpoint record plus "errors" (saves that could not be copied).
+    """
+    if not os.path.isdir(source):
+        raise FileNotFoundError(f"source folder is gone: {source}")
+    current = scan_source(source)
+    if not current:
+        raise ValueError("the save folder is empty - nothing to checkpoint")
+    os.makedirs(backup_root, exist_ok=True)
+    now = now or datetime.now()
+    title = " ".join(title.split()) or f"Checkpoint {now:%d %b %Y %H:%M}"
+
+    items = load_checkpoints(backup_root)
+    taken = {cp["id"] for cp in items}
+    cp_id = base = now.strftime(STAMP_FORMAT)
+    n = 1
+    while cp_id in taken:
+        cp_id = f"{base}_{n}"
+        n += 1
+
+    state = load_state(backup_root)
+    entries: list[dict] = []
+    errors: list[str] = []
+    files = size = 0
+    for name, sig in current.items():
+        entry_dir = os.path.join(backup_root, name)
+        staging = os.path.join(entry_dir, "_staging" + STAGING_SUFFIX)
+        try:
+            os.makedirs(entry_dir, exist_ok=True)
+            if os.path.exists(staging):
+                shutil.rmtree(staging, ignore_errors=True)
+            copy_entry(os.path.join(source, name), staging, latest_version(entry_dir))
+            final = os.path.join(entry_dir, version_stamp(entry_dir, now))
+            os.replace(staging, final)
+        except Exception as exc:  # noqa: BLE001 - one locked save must not sink the rest
+            errors.append(f"{name}: {describe_copy_error(exc)}")
+            shutil.rmtree(staging, ignore_errors=True)
+            continue
+        entries.append({"name": name, "version": os.path.basename(final)})
+        # Already backed up as of now: the next check must not copy it again.
+        state["entries"][name] = entry_signature(os.path.join(source, name)) or sig
+        files += sig["files"]
+        size += sig["bytes"]
+
+    if not entries:
+        raise OSError(f"could not copy any save - {errors[0]}")
+    record = {"id": cp_id, "title": title, "created": now.isoformat(timespec="seconds"),
+              "entries": entries, "files": files, "bytes": size}
+    _save_checkpoints(backup_root, [*items, record])
+    save_state(backup_root, state)
+
+    log("ok", f"checkpoint '{title}' saved: {len(entries)} saves, {files} files, {human_bytes(size)}")
+    for err in errors:
+        log("warn", f"checkpoint skipped {err}")
+    append_history(backup_root, f"CHECKPOINT '{title}' ({len(entries)} saves)")
+    record["created_time"] = parse_stamp(cp_id)
+    record["errors"] = errors
+    return record
+
+
+def rename_checkpoint(backup_root: str, cp_id: str, title: str) -> None:
+    items = load_checkpoints(backup_root)
+    for cp in items:
+        if cp["id"] == cp_id:
+            cp["title"] = " ".join(title.split()) or cp["title"]
+            _save_checkpoints(backup_root, items)
+            return
+    raise FileNotFoundError(f"no checkpoint '{cp_id}'")
+
+
+def delete_checkpoint(backup_root: str, cp_id: str) -> None:
+    """Forget a checkpoint.  Its versions stay, but are no longer pinned, so
+    the normal keep-N pruning may remove them later."""
+    items = load_checkpoints(backup_root)
+    kept = [cp for cp in items if cp["id"] != cp_id]
+    if len(kept) == len(items):
+        raise FileNotFoundError(f"no checkpoint '{cp_id}'")
+    _save_checkpoints(backup_root, kept)
+    append_history(backup_root, f"UNPIN    checkpoint {cp_id}")
+
+
+def restore_checkpoint(source: str, backup_root: str, cp_id: str, log: LogFn = _no_log) -> dict:
+    """Put every save of a checkpoint back.  Each replaced save gets its own
+    undo point.  Saves that are not part of the checkpoint are left alone."""
+    cp = next((c for c in load_checkpoints(backup_root) if c["id"] == cp_id), None)
+    if cp is None:
+        raise FileNotFoundError(f"no checkpoint '{cp_id}'")
+    restored: list[str] = []
+    errors: list[str] = []
+    for e in cp["entries"]:
+        try:
+            restore_version(source, backup_root, e["name"], e["version"], log,
+                            reason=f"before restoring checkpoint '{cp['title']}'")
+            restored.append(e["name"])
+        except Exception as exc:  # noqa: BLE001 - keep going, report at the end
+            errors.append(f"{e['name']}: {describe_copy_error(exc)}")
+            log("error", f"could not restore '{e['name']}': {errors[-1]}")
+    if not restored and errors:
+        raise OSError(errors[0])
+    log("ok", f"checkpoint '{cp['title']}' restored ({len(restored)} saves)")
+    append_history(backup_root, f"RESTORE  checkpoint '{cp['title']}' ({len(restored)} saves)")
+    return {"title": cp["title"], "restored": restored, "errors": errors}

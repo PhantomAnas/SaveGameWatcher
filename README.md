@@ -9,6 +9,8 @@ This helps prevent corrupt save games or lost due to power failures or crashes, 
 
 ![SaveWatch: browsing versions and restoring a save](docs/backups.png)
 
+![SaveWatch: named checkpoints](docs/checkpoints.png)
+
 ## Why
 
 Most games keep a handful of rolling autosaves and silently overwrite them. SaveWatch keeps its own history beside the game:
@@ -21,6 +23,7 @@ Most games keep a handful of rolling autosaves and silently overwrite them. Save
   QuickSave-1/
     2026-09-23_14-31-12/
   .savewatch_undo/         ← saves replaced by a restore, kept for N days
+  .savewatch_checkpoints.json  ← your named checkpoints
   SaveWatch_history.log
 ```
 
@@ -30,6 +33,7 @@ Most games keep a handful of rolling autosaves and silently overwrite them. Save
 - **Backups & Restore browser**: every save slot, every version with its date, time and age ("3 hours ago"), file count and size.
 - **Safe one-click restore**: the save you have now is copied to an undo point first, the old version is fully copied next to it, then the two are swapped. If the game has a file locked, nothing is changed.
 - **Undo** any restore (and undo the undo). Undo points expire after 7 days by default (configurable, or keep forever).
+- **Named checkpoints**: press **★ Save checkpoint** before a big story choice or a boss fight, name it ("Before the big choice in Act 2"), and every save is backed up on the spot. Checkpoints are pinned (never pruned by *versions to keep*) and can be restored as a whole later, for example when your character dies or a choice went wrong.
 - **Change detection by fingerprint**: size and mtime of every file under each save slot, so a 300 MB save folder is scanned in milliseconds.
 - **Hard-link dedup**: files that did not change since the last version are hard-linked, not copied. A 250-file slot where one file changed costs one file of disk.
 - **Keep-N pruning** per save (0 = unlimited).
@@ -68,6 +72,10 @@ Or skip the install and run `python launcher.py` from the checkout (that Python 
 2. Open **Backups & Restore**, pick the save slot, then the version (newest first, with its date and how long ago it was made).
 3. **Restore this version**. Your current save is kept as an undo point; it is listed under **Undo points** for that slot. **Undo** puts it back.
 
+### Checkpoints
+
+**★ Save checkpoint** (also in the tray menu) asks for a name and backs up every save in the folder right now. The **Checkpoints** tab lists them with their date and age; **Restore checkpoint** puts every save of that checkpoint back, each replaced save getting its own undo point. Saves you made after the checkpoint are never deleted. Checkpoint versions show up as **★ PINNED** in the versions list too, so a single slot can be restored from one. Deleting a checkpoint only unpins its versions.
+
 Settings (profiles included) are saved to the per-user config directory (on Windows: `%LOCALAPPDATA%\SaveWatch\settings.json`). Settings from 0.1.x are turned into a profile automatically.
 
 ### Command line
@@ -79,6 +87,9 @@ savewatch --cli --list-profiles
 savewatch --cli --profile "Elden Ring" --list    # saves and their versions
 savewatch --cli --profile "Elden Ring" --restore ER0000.sl2 --version 2026-11-22_14-30-05
 savewatch --cli --profile "Elden Ring" --undo ER0000.sl2
+savewatch --cli --profile "Elden Ring" --checkpoint "Before Malenia"
+savewatch --cli --profile "Elden Ring" --list-checkpoints
+savewatch --cli --profile "Elden Ring" --restore-checkpoint "Before Malenia"
 savewatch --cli --source "C:\...\Savegames" --backup "D:\SaveBackups\Game" --interval 5 --keep 10
 savewatch --cli --once --fresh                   # ignore known state and copy every save once
 ```
@@ -92,7 +103,7 @@ pip install -e ".[dev]"
 pytest                      # engine, config and CLI tests, no display needed
 pyinstaller savewatch.spec  # builds dist/SaveWatch.exe
 python scripts/make_icon.py # regenerate the icon
-python scripts/screenshot.py # regenerate docs/screenshot.png and docs/backups.png
+python scripts/screenshot.py # regenerate the screenshots in docs/
 ```
 
 Layout: `src/savewatch/core.py` is the engine (backup, restore and undo; pure functions, no Qt), `app.py` is the PySide6 window and tray, `theme.py` the neon stylesheet, `cli.py` the command line, `config.py` the settings file and game profiles, `autostart.py` the Windows Run-key entry.
