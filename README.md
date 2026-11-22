@@ -41,6 +41,19 @@ What it keeps on disk:
   SaveWatch_history.log
 ```
 
+## Works with any save format
+
+SaveWatch never opens or parses a save file. It copies bytes, so it makes no difference whether a game saves one file, a file plus a screenshot, a folder per slot, or slots plus an index file.
+
+- **Everything in the save folder is backed up**, whatever the file type. Each file or folder directly inside the save folder is treated as one save. A folder is always copied and restored as a whole, with all the files inside it together.
+- **Companion files stay together.** Files that share a base name, such as `ManualSave_12.sav` + `ManualSave_12.png` (The Witcher 3) or `slot1.sav` + `slot1.meta`, are restored together, from the same moment, and one Undo reverts them all.
+- **Index and profile files.** Some games keep one file that lists every save. For those, use **Restore ALL saves to this moment** (or a checkpoint): every file goes back to the same moment, so the index always matches the saves.
+- **One moment per check.** Every file backed up in the same check gets the same timestamp, which is what makes "the same moment" exact.
+- **Saves written during the copy.** After copying, each save is checked again. If the game changed it in the meantime, the copy is thrown away and taken again, so a half-old, half-new mix is never kept as the backup.
+- **Space saving is lossless.** A file that did not change is stored as a hard link (a second name for the same bytes on disk), not compressed or patched. Every version folder is a complete, normal copy you can open in Explorer.
+
+Not covered: games that keep their saves in the Windows registry or only in the cloud. If a game spreads its saves over several folders, pick the folder that contains all of them as the save folder.
+
 ## Features
 
 - **Game profiles**: one profile per game, each with its own save folder, backup folder, check interval and versions to keep. Pick a save folder and the game's name is filled in for you (`...\Documents\The Witcher 3\gamesaves` → *The Witcher 3*).
@@ -52,7 +65,8 @@ What it keeps on disk:
 - **Hard-link dedup**: files that did not change since the last version are hard-linked, not copied. A 250-file slot where one file changed costs one file of disk.
 - **Keep-N pruning** per save (0 = unlimited).
 - **Never mirrors deletions**; a save that vanishes from the game is flagged, its versions stay.
-- **Lock-tolerant**: retries files the game is still writing and moves on, nothing partial is ever left behind (versions are staged and renamed atomically).
+- **Lock-tolerant**: retries files the game is still writing and moves on, nothing partial is ever left behind (versions are staged and renamed atomically). A save that changes while it is being copied is copied again.
+- **Restore all saves to one moment**: for games with an index or profile file, put every file back the way it was at any backup time, undone with one click.
 - **System tray**: keeps watching when the window is closed, with Start/Stop and Back up now in the tray menu.
 - **Start with Windows** (minimized, optional auto-start watching).
 - **Command line mode** for scripts and schedulers: `savewatch --cli`.

@@ -51,17 +51,22 @@ def make_version(backup: str, slot: str, when: datetime, size: int) -> None:
 
 def build_demo_backup() -> str:
     backup = os.path.join(tmp, "backup")
-    plan = {
-        "AutoSave_3.sav": [(0, 2, 10), (0, 1, 30), (0, 0, 45), (0, 0, 9)],
-        MAIN_SLOT: [(9, 0, 0), (6, 3, 0), (4, 1, 20), (2, 5, 0), (1, 0, 40),
-                    (0, 5, 10), (0, 3, 2), (0, 1, 12)],
-        "ManualSave_13.sav": [(3, 4, 0), (1, 2, 30), (0, 6, 15)],
-        "QuickSave.sav": [(0, 4, 0), (0, 0, 22)],
+    saves = {
+        "AutoSave_3": [(0, 2, 10), (0, 1, 30), (0, 0, 45), (0, 0, 9)],
+        "ManualSave_12": [(9, 0, 0), (6, 3, 0), (4, 1, 20), (2, 5, 0), (1, 0, 40),
+                          (0, 5, 10), (0, 3, 2), (0, 1, 12)],
+        "ManualSave_13": [(3, 4, 0), (1, 2, 30), (0, 6, 15)],
+        "QuickSave": [(0, 4, 0), (0, 0, 22)],
     }
+    # Every Witcher 3 save is a .sav plus a .png thumbnail, written together.
+    plan = {}
+    for base, ages in saves.items():
+        plan[f"{base}.sav"] = ages
+        plan[f"{base}.png"] = ages
     for slot, ages in plan.items():
         for i, (d, h, m) in enumerate(ages):
-            make_version(backup, slot, NOW - timedelta(days=d, hours=h, minutes=m),
-                         4_300_000 + 90_000 * i)
+            size = 4_300_000 + 90_000 * i if slot.endswith(".sav") else 310_000
+            make_version(backup, slot, NOW - timedelta(days=d, hours=h, minutes=m), size)
     checkpoints = []
     for title, (d, h, m) in (("Before the Bloody Baron's choice", (6, 3, 0)),
                              ("Before the Battle of Kaer Morhen", (2, 5, 0)),
@@ -69,10 +74,10 @@ def build_demo_backup() -> str:
         when = NOW - timedelta(days=d, hours=h, minutes=m)
         stamp = when.strftime(core.STAMP_FORMAT)
         for slot in plan:
-            make_version(backup, slot, when, 4_700_000)
+            make_version(backup, slot, when, 4_700_000 if slot.endswith(".sav") else 310_000)
         checkpoints.append({"id": stamp, "title": title, "created": when.isoformat(),
                             "entries": [{"name": s, "version": stamp} for s in plan],
-                            "files": 4, "bytes": 4 * 4_700_000})
+                            "files": len(plan), "bytes": 4 * (4_700_000 + 310_000)})
     with open(os.path.join(backup, core.CHECKPOINTS_FILENAME), "w") as fh:
         json.dump({"checkpoints": checkpoints}, fh)
     undo_dir = os.path.join(backup, core.UNDO_DIRNAME, MAIN_SLOT)
@@ -105,13 +110,16 @@ win = SaveWatchWindow(s)
 win.log_view.clear()
 win.log("info", f"[The Witcher 3] watching {FAKE_SRC}")
 win.log("info", rf"Backing up to {FAKE_DST} - every 5 min, keeping 10 versions (8 saves already known).")
+win.log("ok", "new: 'QuickSave.png' -> 2026-11-22_14-30-05 (1 file, 302 KB)")
 win.log("ok", "new: 'QuickSave.sav' -> 2026-11-22_14-30-05 (1 file, 4.4 MB)")
+win.log("ok", "changed: 'ManualSave_12.png' -> 2026-11-22_14-35-05 (1 file, 302 KB)")
 win.log("ok", "changed: 'ManualSave_12.sav' -> 2026-11-22_14-35-05 (1 file, 4.6 MB)")
 win.log("prune", "removed old version ManualSave_12.sav/2026-11-12_20-10-33")
 win.log("ok", "restored 'ManualSave_12.sav' to version 2026-11-20_19-02-11 (1 file, 4.5 MB) - previous save kept as undo point 2026-11-22_14-41-50")
-win.log("ok", "checkpoint 'Before the final battle' saved: 4 saves, 4 files, 17.9 MB")
+win.log("ok", "also restored 'ManualSave_12.png' from the same moment")
+win.log("ok", "checkpoint 'Before the final battle' saved: 8 saves, 8 files, 19.1 MB")
 win.log("alert", "'AutoSave_1.sav' disappeared from the source - its backups are kept")
-win.log("info", "8 saves checked - 2 backed up (9.0 MB).")
+win.log("info", "16 saves checked - 2 backed up (4.9 MB).")
 
 # Look like a running watch without starting one.
 win.running = True

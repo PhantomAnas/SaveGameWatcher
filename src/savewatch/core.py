@@ -273,6 +273,45 @@ def prune_versions(entry_dir: str, keep: int, log: LogFn,
     return removed
 
 
+def snapshot_entry(src: str, entry_dir: str, sig: dict, when: datetime,
+                   attempts: int = 3, settle: float = 1.0) -> tuple[str, dict, dict | None]:
+    """Copy one save into a new version folder of `entry_dir`.
+
+    The save is fingerprinted again after copying.  If it changed meanwhile
+    (the game was writing it), the copy may mix old and new bytes, so it is
+    thrown away and taken again, up to `attempts` times.
+
+    Returns (version folder name, copy tally, settled signature).  The
+    signature is None when the save never held still; the last copy is kept
+    anyway so there is at least something.
+    """
+    staging = os.path.join(entry_dir, "_staging" + STAGING_SUFFIX)
+    os.makedirs(entry_dir, exist_ok=True)
+    settled: dict | None = None
+    tally: dict = {}
+    for attempt in range(attempts):
+        if os.path.exists(staging):
+            remove_path(staging)
+        try:
+            tally = copy_entry(src, staging, latest_version(entry_dir))
+        except Exception:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        after = entry_signature(src)
+        if after is None:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise FileNotFoundError(f"'{os.path.basename(src)}' vanished while being copied")
+        if after["sig"] == sig["sig"]:
+            settled = after
+            break
+        sig = after  # it moved on; copy the newer state
+        if attempt < attempts - 1:
+            time.sleep(settle)
+    final = os.path.join(entry_dir, version_stamp(entry_dir, when))
+    os.replace(staging, final)
+    return os.path.basename(final), tally, settled
+
+
 def describe_copy_error(exc: Exception) -> str:
     """Turn a copy failure into one readable line."""
     if isinstance(exc, shutil.Error) and exc.args and isinstance(exc.args[0], list):
@@ -353,6 +392,10 @@ def run_backup_cycle(source: str, backup_root: str, keep: int, state: dict,
     if undo_days is not None:
         purge_undo_points(backup_root, undo_days, log)
 
+    # Every version made by this pass carries the same timestamp, so a save
+    # split over several files (data + screenshot, slot + index) can later be
+    # put back exactly as it was at one moment.
+    cycle_time = datetime.now()
     current = scan_source(source)
     previous = state.setdefault("entries", {})
     stats["checked"] = len(current)
@@ -374,25 +417,27 @@ def run_backup_cycle(source: str, backup_root: str, keep: int, state: dict,
 
         reason = "new" if old is None else "changed"
         entry_dir = os.path.join(backup_root, name)
-        staging = os.path.join(entry_dir, "_staging" + STAGING_SUFFIX)
         try:
-            os.makedirs(entry_dir, exist_ok=True)
-            if os.path.exists(staging):
-                shutil.rmtree(staging, ignore_errors=True)
-            tally = copy_entry(os.path.join(source, name), staging, latest_version(entry_dir))
-            final = os.path.join(entry_dir, version_stamp(entry_dir))
-            os.replace(staging, final)
+            version, tally, settled = snapshot_entry(os.path.join(source, name), entry_dir,
+                                                     sig, cycle_time)
         except Exception as exc:  # noqa: BLE001 - one bad entry must not kill the cycle
             detail = describe_copy_error(exc)
             stats["errors"] += 1
             log("error", f"could not back up '{name}': {detail} - will retry next check")
             append_history(backup_root, f"ERROR    {name}: {detail}")
-            shutil.rmtree(staging, ignore_errors=True)
             continue
+        final = os.path.join(entry_dir, version)
 
-        # Re-fingerprint: the game may have written more while we copied, and
-        # storing the *pre-copy* signature would hide that from the next pass.
-        previous[name] = entry_signature(os.path.join(source, name)) or sig
+        if settled is None:
+            # The game kept writing during every copy attempt.  Keep the copy
+            # (better than nothing) but leave the save marked as changed, so
+            # the next check copies it again once the game has finished.
+            log("warn", f"'{name}' was still being written while copying - "
+                        "it will be copied again next check")
+            previous[name] = old if old else {"sig": "unsettled"}
+        else:
+            previous[name] = settled
+            sig = settled
         stats["copied"] += 1
         stats["bytes"] += sig["bytes"]
         stats["written_bytes"] += tally["written_bytes"]
@@ -555,11 +600,13 @@ def _undo_dir(backup_root: str, name: str) -> str:
     return os.path.join(backup_root, UNDO_DIRNAME, name)
 
 
-def create_undo_point(source: str, backup_root: str, name: str, reason: str) -> str:
+def create_undo_point(source: str, backup_root: str, name: str, reason: str,
+                      group: str | None = None) -> str:
     """Snapshot the live save `name` into the undo area.  Returns the undo id.
 
     If the save does not exist right now the undo point records that, and
-    undoing it removes the save again.
+    undoing it removes the save again.  Undo points made by one restore of
+    several saves share a `group`, so they are undone together.
     """
     live = os.path.join(source, name)
     undo_dir = _undo_dir(backup_root, name)
@@ -570,7 +617,7 @@ def create_undo_point(source: str, backup_root: str, name: str, reason: str) -> 
 
     meta = {"entry": name, "created": datetime.now().isoformat(timespec="seconds"),
             "reason": reason, "absent": not os.path.lexists(live), "kind": None,
-            "files": 0, "bytes": 0}
+            "files": 0, "bytes": 0, "group": group}
     if not meta["absent"]:
         staging = os.path.join(undo_dir, "_staging" + STAGING_SUFFIX)
         if os.path.exists(staging):
@@ -722,55 +769,147 @@ def _remember_restored(source: str, backup_root: str, name: str) -> None:
     save_state(backup_root, state)
 
 
-def restore_version(source: str, backup_root: str, name: str, version: str,
-                    log: LogFn = _no_log, reason: str | None = None) -> dict:
-    """Put backup version `version` of save `name` back into the source folder.
+def _new_group() -> str:
+    return os.urandom(6).hex()
 
-    The current save is kept as an undo point first (described by `reason`).
-    Returns {"name", "version", "undo_id", "files", "bytes"}.
+
+def entry_stem(name: str) -> str:
+    """Base name shared by a save's companion files, case-insensitive.
+
+    ManualSave_12.sav / ManualSave_12.png -> 'manualsave_12';
+    Slot1 (folder) / Slot1.meta -> 'slot1'.
     """
-    if not os.path.isdir(source):
-        raise FileNotFoundError(f"source folder is gone: {source}")
+    return (name.split(".", 1)[0] or name).lower()
+
+
+def version_at(entry_dir: str, when: datetime) -> str | None:
+    """Newest version of a save that is not newer than `when`: the state the
+    save was in at that moment (as far as the backups know)."""
+    best = None
+    for v in list_versions(entry_dir):
+        t = parse_stamp(v)
+        if t is not None and t <= when:
+            best = v
+    return best
+
+
+def related_saves(backup_root: str, name: str, version: str) -> list[tuple[str, str]]:
+    """Companion files of a save - other saves with the same base name, such
+    as a screenshot or a .meta/.bak file - each at the version it had at the
+    moment `version` was taken."""
+    when = parse_stamp(version)
+    if when is None:
+        return []
+    stem = entry_stem(name)
+    out: list[tuple[str, str]] = []
+    for e in list_backup_entries(backup_root):
+        if e["name"] == name or entry_stem(e["name"]) != stem:
+            continue
+        v = version_at(os.path.join(backup_root, e["name"]), when)
+        if v:
+            out.append((e["name"], v))
+    return out
+
+
+def _restore_one(source: str, backup_root: str, name: str, version: str, reason: str,
+                 group: str | None) -> dict:
+    """Swap one save in the source folder for one backup version, undo point first."""
     data_dir = os.path.join(backup_root, name, version)
     if not VERSION_RE.match(version) or not os.path.isdir(data_dir):
         raise FileNotFoundError(f"no backup version '{version}' for '{name}'")
-
     kind = entry_kind(source, name, data_dir)
-    undo_id = create_undo_point(source, backup_root, name, reason or f"before restoring {version}")
+    undo_id = create_undo_point(source, backup_root, name, reason, group)
     try:
         _swap_into_source(source, name, data_dir, kind)
     except Exception:
         delete_undo_point(backup_root, name, undo_id)  # nothing changed, nothing to undo
         raise
     _remember_restored(source, backup_root, name)
-
     files, size = folder_stats(data_dir)
-    log("ok", f"restored '{name}' to version {version} ({plural(files, 'file')}, {human_bytes(size)}) "
-              f"- previous save kept as undo point {undo_id}")
-    append_history(backup_root, f"RESTORE  {name} <- {version} (undo point {undo_id})")
     return {"name": name, "version": version, "undo_id": undo_id, "files": files, "bytes": size}
 
 
-def undo_restore(source: str, backup_root: str, name: str, undo_id: str,
-                 log: LogFn = _no_log) -> dict:
-    """Bring back the save as it was when undo point `undo_id` was taken.
+def restore_version(source: str, backup_root: str, name: str, version: str,
+                    log: LogFn = _no_log, reason: str | None = None,
+                    with_related: bool = True) -> dict:
+    """Put backup version `version` of save `name` back into the source folder.
 
-    What is live right now becomes a new undo point (so an undo can itself be
-    undone) and the used undo point is deleted.
+    Companion files with the same base name (see `related_saves`) are put
+    back too, as they were at the same moment, so a save and its screenshot
+    or metadata always match.  Every replaced file is kept as an undo point
+    first; they share a group and are undone together.
+
+    Returns {"name", "version", "undo_id", "files", "bytes", "related", "errors"}.
     """
     if not os.path.isdir(source):
         raise FileNotFoundError(f"source folder is gone: {source}")
-    points = {p["id"]: p for p in list_undo_points(backup_root, name)}
-    meta = points.get(undo_id)
-    if meta is None:
-        raise FileNotFoundError(f"no undo point '{undo_id}' for '{name}'")
+    reason = reason or f"before restoring {version}"
+    companions = related_saves(backup_root, name, version) if with_related else []
+    group = _new_group() if companions else None
 
+    result = _restore_one(source, backup_root, name, version, reason, group)
+    related: list[str] = []
+    errors: list[str] = []
+    for other, other_version in companions:
+        try:
+            _restore_one(source, backup_root, other, other_version, reason, group)
+            related.append(other)
+        except Exception as exc:  # noqa: BLE001 - the main save is already back
+            errors.append(f"{other}: {describe_copy_error(exc)}")
+            log("warn", f"could not restore companion file '{other}': {errors[-1]}")
+
+    log("ok", f"restored '{name}' to version {version} ({plural(result['files'], 'file')}, "
+              f"{human_bytes(result['bytes'])}) - previous save kept as undo point {result['undo_id']}")
+    if related:
+        log("ok", f"also restored {', '.join(repr(r) for r in related)} from the same moment")
+    extra = f" + {', '.join(related)}" if related else ""
+    append_history(backup_root, f"RESTORE  {name}{extra} <- {version} (undo point {result['undo_id']})")
+    result.update(related=related, errors=errors)
+    return result
+
+
+def restore_point_in_time(source: str, backup_root: str, version: str,
+                          log: LogFn = _no_log) -> dict:
+    """Put every save back the way it was at the moment `version` was taken.
+
+    For games that keep an index or profile file next to the save slots, this
+    is the consistent way back: every file is restored to the same moment.
+    Saves that did not exist yet at that moment are left alone (never deleted).
+    """
+    if not os.path.isdir(source):
+        raise FileNotFoundError(f"source folder is gone: {source}")
+    when = parse_stamp(version)
+    if when is None:
+        raise ValueError(f"not a backup time: {version}")
+    group = _new_group()
+    reason = f"before restoring everything to {version}"
+    restored: list[str] = []
+    errors: list[str] = []
+    for e in list_backup_entries(backup_root):
+        v = version_at(os.path.join(backup_root, e["name"]), when)
+        if not v:
+            continue
+        try:
+            _restore_one(source, backup_root, e["name"], v, reason, group)
+            restored.append(e["name"])
+        except Exception as exc:  # noqa: BLE001 - keep going, report at the end
+            errors.append(f"{e['name']}: {describe_copy_error(exc)}")
+            log("error", f"could not restore '{e['name']}': {errors[-1]}")
+    if not restored:
+        raise OSError(errors[0] if errors else f"nothing was backed up before {version}")
+    log("ok", f"restored {plural(len(restored), 'save')} to how they were at {version}")
+    append_history(backup_root, f"RESTORE  everything <- {version} ({len(restored)} saves)")
+    return {"version": version, "restored": restored, "errors": errors, "group": group}
+
+
+def _undo_one(source: str, backup_root: str, meta: dict, group: str | None) -> str:
+    name, undo_id = meta["entry"], meta["id"]
     data_dir = None if meta.get("absent") else os.path.join(_undo_dir(backup_root, name), undo_id)
     if data_dir is not None and not os.path.isdir(data_dir):
         raise FileNotFoundError(f"undo point '{undo_id}' is missing its files")
     kind = meta.get("kind") or (entry_kind(source, name, data_dir) if data_dir else None)
 
-    new_id = create_undo_point(source, backup_root, name, f"before undoing {undo_id}")
+    new_id = create_undo_point(source, backup_root, name, f"before undoing {undo_id}", group)
     try:
         _swap_into_source(source, name, data_dir, kind)
     except Exception:
@@ -778,11 +917,47 @@ def undo_restore(source: str, backup_root: str, name: str, undo_id: str,
         raise
     delete_undo_point(backup_root, name, undo_id)
     _remember_restored(source, backup_root, name)
+    return new_id
 
-    what = "removed again (it did not exist then)" if data_dir is None else "put back"
-    log("ok", f"undo: '{name}' as of {undo_id} {what} - redo point {new_id}")
-    append_history(backup_root, f"UNDO     {name} <- undo point {undo_id} (redo point {new_id})")
-    return {"name": name, "undo_id": new_id, "restored": undo_id}
+
+def undo_restore(source: str, backup_root: str, name: str, undo_id: str,
+                 log: LogFn = _no_log) -> dict:
+    """Bring back the save as it was when undo point `undo_id` was taken.
+
+    If the undo point belongs to a group (a restore that replaced several
+    files), the whole group is undone.  What is live right now becomes new
+    undo points (so an undo can itself be undone); used points are deleted.
+    """
+    if not os.path.isdir(source):
+        raise FileNotFoundError(f"source folder is gone: {source}")
+    meta = next((p for p in list_undo_points(backup_root, name) if p["id"] == undo_id), None)
+    if meta is None:
+        raise FileNotFoundError(f"no undo point '{undo_id}' for '{name}'")
+    group = meta.get("group")
+    members = [meta]
+    if group:
+        members += [p for p in list_undo_points(backup_root)
+                    if p.get("group") == group and p is not meta
+                    and not (p["entry"] == name and p["id"] == undo_id)]
+    new_group = _new_group() if len(members) > 1 else None
+
+    new_id = _undo_one(source, backup_root, meta, new_group)  # the one asked for must work
+    done = [name]
+    errors: list[str] = []
+    for p in members[1:]:
+        try:
+            _undo_one(source, backup_root, p, new_group)
+            done.append(p["entry"])
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{p['entry']}: {describe_copy_error(exc)}")
+            log("error", f"could not undo '{p['entry']}': {errors[-1]}")
+
+    what = "removed again (it did not exist then)" if meta.get("absent") else "put back"
+    log("ok", f"undo: '{name}' as of {undo_id} {what}"
+              + (f" (+{len(done) - 1} more from the same restore)" if len(done) > 1 else ""))
+    append_history(backup_root, f"UNDO     {', '.join(done)} <- undo point {undo_id}")
+    return {"name": name, "undo_id": new_id, "restored": undo_id, "count": len(done),
+            "errors": errors}
 
 
 # ------------------------------------------------------------ checkpoints
@@ -874,21 +1049,19 @@ def create_checkpoint(source: str, backup_root: str, title: str, log: LogFn = _n
     files = size = 0
     for name, sig in current.items():
         entry_dir = os.path.join(backup_root, name)
-        staging = os.path.join(entry_dir, "_staging" + STAGING_SUFFIX)
         try:
-            os.makedirs(entry_dir, exist_ok=True)
-            if os.path.exists(staging):
-                shutil.rmtree(staging, ignore_errors=True)
-            copy_entry(os.path.join(source, name), staging, latest_version(entry_dir))
-            final = os.path.join(entry_dir, version_stamp(entry_dir, now))
-            os.replace(staging, final)
+            version, _tally, settled = snapshot_entry(os.path.join(source, name), entry_dir,
+                                                      sig, now)
         except Exception as exc:  # noqa: BLE001 - one locked save must not sink the rest
             errors.append(f"{name}: {describe_copy_error(exc)}")
-            shutil.rmtree(staging, ignore_errors=True)
             continue
-        entries.append({"name": name, "version": os.path.basename(final)})
-        # Already backed up as of now: the next check must not copy it again.
-        state["entries"][name] = entry_signature(os.path.join(source, name)) or sig
+        entries.append({"name": name, "version": version})
+        if settled is not None:
+            # Already backed up as of now: the next check must not copy it again.
+            state["entries"][name] = settled
+            sig = settled
+        else:
+            log("warn", f"'{name}' was still being written while saving the checkpoint")
         files += sig["files"]
         size += sig["bytes"]
 
@@ -936,12 +1109,15 @@ def restore_checkpoint(source: str, backup_root: str, cp_id: str, log: LogFn = _
     cp = next((c for c in load_checkpoints(backup_root) if c["id"] == cp_id), None)
     if cp is None:
         raise FileNotFoundError(f"no checkpoint '{cp_id}'")
+    if not os.path.isdir(source):
+        raise FileNotFoundError(f"source folder is gone: {source}")
     restored: list[str] = []
     errors: list[str] = []
+    group = _new_group()
     for e in cp["entries"]:
         try:
-            restore_version(source, backup_root, e["name"], e["version"], log,
-                            reason=f"before restoring checkpoint '{cp['title']}'")
+            _restore_one(source, backup_root, e["name"], e["version"],
+                         f"before restoring checkpoint '{cp['title']}'", group)
             restored.append(e["name"])
         except Exception as exc:  # noqa: BLE001 - keep going, report at the end
             errors.append(f"{e['name']}: {describe_copy_error(exc)}")

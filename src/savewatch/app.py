@@ -35,8 +35,10 @@ from .core import (
     parse_stamp,
     pinned_versions,
     plural,
+    related_saves,
     rename_checkpoint,
     restore_checkpoint,
+    restore_point_in_time,
     restore_version,
     run_backup_cycle,
     summarize_stats,
@@ -424,6 +426,8 @@ class BackupWorker(QObject):
                                                     self._emit),
             "restore_checkpoint": lambda: restore_checkpoint(job["source"], job["backup"],
                                                              job["ref"], self._emit),
+            "restore_all": lambda: restore_point_in_time(job["source"], job["backup"],
+                                                         job["ref"], self._emit),
         }
         try:
             result.update(actions[job["kind"]]())
@@ -845,6 +849,13 @@ class SaveWatchWindow(Backdrop):
         act.addWidget(self.restore_btn, 1)
         act.addWidget(self.open_ver_btn)
         d_lay.addLayout(act)
+        self.restore_all_btn = QPushButton("⟲  Restore ALL saves to this moment")
+        self.restore_all_btn.setObjectName("Small")
+        self.restore_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.restore_all_btn.setToolTip("Every file in the save folder goes back to how it was "
+                                        "at this time - for games with an index or profile file.")
+        self.restore_all_btn.clicked.connect(self.restore_all_selected)
+        d_lay.addWidget(self.restore_all_btn)
         self.restore_note = label("", "Hint", wrap=True)
         d_lay.addWidget(self.restore_note)
 
@@ -1355,9 +1366,15 @@ class SaveWatchWindow(Backdrop):
         self.det_folder.setText(version)
         days = self.settings.undo_days
         keep = f"for {days} day{'s' if days != 1 else ''}" if days else "until you delete it"
+        companions = [n for n, _ in related_saves(self.profile.backup, name, version)]
+        with_them = (f" Its companion file{'s' if len(companions) != 1 else ''} "
+                     f"{', '.join(companions[:3])}{'...' if len(companions) > 3 else ''} "
+                     f"{'comes' if len(companions) == 1 else 'come'} back from the same moment."
+                     if companions else "")
         self.restore_note.setText(
             f"Restoring copies this version back into the game's save folder. Your current "
-            f"'{name}' is kept as an undo point {keep} first. Close the game before restoring.")
+            f"'{name}' is kept as an undo point {keep} first.{with_them} "
+            "Close the game before restoring.")
         self._update_action_buttons()
 
     def _fill_undo(self, name: str | None) -> None:
@@ -1386,6 +1403,7 @@ class SaveWatchWindow(Backdrop):
     def _update_action_buttons(self) -> None:
         has_version = bool(self._selected(self.slot_list) and self._selected(self.version_list))
         self.restore_btn.setEnabled(has_version and not self.busy)
+        self.restore_all_btn.setEnabled(has_version and not self.busy)
         self.open_ver_btn.setEnabled(has_version)
         self.undo_btn.setEnabled(self.undo_list.currentItem() is not None and not self.busy)
         if hasattr(self, "cp_list"):
@@ -1427,6 +1445,12 @@ class SaveWatchWindow(Backdrop):
         current = (f"Your current '{name}' is saved as an undo point first ({keep}), "
                    "then replaced." if live else
                    f"'{name}' is not in the save folder right now; it will be created.")
+        companions = [n for n, _ in related_saves(paths[1], name, version)]
+        if companions:
+            shown = ", ".join(companions[:5]) + (f" and {len(companions) - 5} more"
+                                                 if len(companions) > 5 else "")
+            current += (f"\n\nIts companion files are restored from the same moment too, so "
+                        f"they match: {shown}.")
         box = QMessageBox(self)
         box.setWindowTitle("Restore save")
         box.setIcon(QMessageBox.Icon.Question)
@@ -1443,6 +1467,34 @@ class SaveWatchWindow(Backdrop):
         self._run_job({"kind": "restore", "source": paths[0], "backup": paths[1],
                        "name": name, "ref": version})
 
+    def restore_all_selected(self) -> None:
+        version = self._selected(self.version_list)
+        if not version or self.busy:
+            return
+        paths = self._check_restore_paths()
+        if not paths:
+            return
+        when = parse_stamp(version)
+        box = QMessageBox(self)
+        box.setWindowTitle("Restore all saves")
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setText(f"<b>Put every save back</b> the way it was at<br>"
+                    f"<b>{fmt_when(when)}</b> ({humanize_age(when)})?")
+        box.setInformativeText(
+            "Use this for games that keep an index or profile file next to their saves: "
+            "every file in the backup goes back to that same moment, so they all match.\n\n"
+            "Each file that gets replaced is kept as an undo point first, and one Undo puts "
+            "them all back. Saves created after that moment are not deleted.\n\n"
+            "Close the game before restoring.")
+        ok = box.addButton("Restore all", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(QMessageBox.StandardButton.Cancel)
+        box.setDefaultButton(ok)
+        box.exec()
+        if box.clickedButton() is not ok:
+            return
+        self._run_job({"kind": "restore_all", "source": paths[0], "backup": paths[1],
+                       "name": fmt_when(when), "ref": version})
+
     def undo_selected(self) -> None:
         name = self._selected(self.slot_list)
         item = self.undo_list.currentItem()
@@ -1452,9 +1504,16 @@ class SaveWatchWindow(Backdrop):
         if not paths:
             return
         undo_id = item.data(ROLE)
+        point = next((p for p in list_undo_points(paths[1], name) if p["id"] == undo_id), {})
+        group = point.get("group")
+        others = [p["entry"] for p in list_undo_points(paths[1])
+                  if group and p.get("group") == group and p["entry"] != name]
+        also = (f"\n\nThis restore also replaced {plural(len(others), 'other file')} "
+                f"({', '.join(others[:5])}{'...' if len(others) > 5 else ''}); "
+                "they are put back too." if others else "")
         answer = QMessageBox.question(
             self, "Undo restore",
-            f"Put '{name}' back the way it was at {fmt_when(parse_stamp(undo_id))}?\n\n"
+            f"Put '{name}' back the way it was at {fmt_when(parse_stamp(undo_id))}?{also}\n\n"
             "What is in the save folder now becomes a new undo point, so this can be undone too.")
         if answer != QMessageBox.StandardButton.Yes:
             return
@@ -1466,6 +1525,7 @@ class SaveWatchWindow(Backdrop):
         "undo": ("UNDOING...", "undo"),
         "checkpoint": ("SAVING CHECKPOINT...", "save the checkpoint"),
         "restore_checkpoint": ("RESTORING CHECKPOINT...", "restore the checkpoint"),
+        "restore_all": ("RESTORING ALL SAVES...", "restore all saves to"),
     }
 
     def _run_job(self, job: dict) -> None:
@@ -1478,11 +1538,15 @@ class SaveWatchWindow(Backdrop):
         self._set_busy(False)
         kind, name = result["kind"], result["name"]
         if result.get("ok"):
+            related = result.get("related") or []
+            count = result.get("count", 1)
             msg = {
-                "restore": f"'{name}' restored. The previous save is an undo point.",
-                "undo": f"'{name}' put back.",
+                "restore": f"'{name}' restored" + (f" with {', '.join(related)}" if related else "")
+                           + ". The previous save is an undo point.",
+                "undo": f"'{name}' put back" + (f" (+{count - 1} more)" if count > 1 else "") + ".",
                 "checkpoint": f"Checkpoint '{name}' saved.",
                 "restore_checkpoint": f"Checkpoint '{name}' restored.",
+                "restore_all": f"{len(result.get('restored', []))} saves put back to {name}.",
             }[kind]
             if self.tray and self.isHidden():
                 self.tray.showMessage(APP_NAME, msg, QSystemTrayIcon.MessageIcon.Information, 4000)
