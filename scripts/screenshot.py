@@ -3,7 +3,8 @@
     python scripts/screenshot.py
 
 Writes docs/screenshot.png (Watch tab), docs/backups.png (Backups & Restore
-tab) and docs/checkpoints.png (Checkpoints tab).  Uses a throw-away settings file and a temp folder full of fake backups,
+tab), docs/checkpoints.png (Checkpoints tab) and docs/picker.png (game picker).
+Uses a throw-away settings file and a temp folder full of fake backups,
 so the real user config is untouched.  Paths shown on screen are placeholders.
 """
 
@@ -199,4 +200,4 @@ picker.close()
 win.running = False
 win.quit_app()
 shutil.rmtree(tmp, ignore_errors=True)
-print("wrote docs/screenshot.png, docs/backups.png and docs/checkpoints.png")
+print("wrote docs/screenshot.png, docs/backups.png, docs/checkpoints.png and docs/picker.png")
